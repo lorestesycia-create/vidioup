@@ -1,0 +1,20 @@
+VIDIOUP
+
+Descripción corta:
+Descubre vídeos y promociona tu contenido dentro de VidioUp.
+
+Descripción completa:
+VidioUp es una plataforma para descubrir vídeos de creadores y promocionar contenido mediante exposición dentro de la propia aplicación.
+
+Los creadores pueden crear campañas con monedas internas y consultar impresiones internas, aperturas hacia YouTube y presupuesto utilizado. Los espectadores pueden descubrir contenido por categorías e intereses.
+
+VidioUp no vende ni recompensa reproducciones, likes, comentarios, suscripciones, compartidos ni tiempo de visualización en YouTube. Las promociones se identifican claramente y los vídeos se abren en YouTube.
+
+Funciones previstas en V1:
+• Descubrimiento de vídeos.
+• Campañas Básica, Destacada e Impulso.
+• Monedero de monedas internas.
+• Monedas mediante anuncios recompensados.
+• Paquetes de monedas mediante compras en Google Play.
+• Estadísticas de campañas.
+• Favoritos, notificaciones, denuncias, soporte y gestión de cuenta.
