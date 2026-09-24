@@ -6,13 +6,16 @@ workflows:
       java: 21
       android_signing:
         - vidioup
+
     scripts:
       - name: Install
-        script: npm install
+        script: |
+          npm install
 
       - name: Bundle web
         script: |
-          rm -rf www-final && mkdir www-final
+          rm -rf www-final
+          mkdir www-final
           npx esbuild www/app.js --bundle --platform=browser --format=iife --outfile=www-final/app.js
           cp www/index.html www/style.css www/config.json www/icon.png www-final/
 
@@ -30,55 +33,73 @@ workflows:
 
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
+
           marker = '<application'
           start = text.index(marker)
           end = text.index('>', start) + 1
+
           meta = '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-8854680295966508~6489002203" />'
+
           if 'com.google.android.gms.ads.APPLICATION_ID' not in text:
               text = text[:end] + meta + text[end:]
+
           manifest.write_text(text)
 
           variables = Path('android/variables.gradle')
           v = variables.read_text()
-          v = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 23', v)
-          v = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', v)
+
+          v = re.sub(
+              r'minSdkVersion\s*=\s*\d+',
+              'minSdkVersion = 23',
+              v
+          )
+
+          v = re.sub(
+              r'targetSdkVersion\s*=\s*\d+',
+              'targetSdkVersion = 36',
+              v
+          )
+
           variables.write_text(v)
 
           gradle = Path('android/app/build.gradle')
           g = gradle.read_text()
-          g = re.sub(r'versionCode\s+\d+', 'versionCode 1', g)
-          g = re.sub(r'versionName\s+"[^"]*"', 'versionName "1.0"', g)
 
-          if 'CM_KEYSTORE_PATH' not in g:
-              signing = '''
-              signingConfigs {
-                  release {
-                      storeFile file(System.getenv("CM_KEYSTORE_PATH"))
-                      storePassword System.getenv("CM_KEYSTORE_PASSWORD")
-                      keyAlias System.getenv("CM_KEY_ALIAS")
-                      keyPassword System.getenv("CM_KEY_PASSWORD")
-                  }
-              }
-          '''
-              g = g.replace('    buildTypes {', signing + '\n    buildTypes {', 1)
+          g = re.sub(
+              r'versionCode\s+\d+',
+              'versionCode 1',
+              g
+          )
 
-          release_pattern = r'(release\s*\{)'
-          if 'signingConfig signingConfigs.release' not in g:
-              g = re.sub(release_pattern, r'\1\n            signingConfig signingConfigs.release', g, count=1)
+          g = re.sub(
+              r'versionName\s+"[^"]*"',
+              'versionName "1.0"',
+              g
+          )
 
           gradle.write_text(g)
           PY
 
-      - name: Build signed AAB
+      - name: Build AAB
         script: |
           cd android
           ./gradlew bundleRelease
 
+      - name: Sign AAB
+        script: |
+          AAB="android/app/build/outputs/bundle/release/app-release.aab"
+          test -f "$AAB"
+          jarsigner \
+            -keystore "$CM_KEYSTORE_PATH" \
+            -storepass "$CM_KEYSTORE_PASSWORD" \
+            -keypass "$CM_KEY_PASSWORD" \
+            "$AAB" \
+            "$CM_KEY_ALIAS"
+
       - name: Verify signed AAB
         script: |
-          AAB=$(find android/app/build/outputs -name "*.aab" | head -1)
-          test -n "$AAB"
-          jarsigner -verify "$AAB"
+          AAB="android/app/build/outputs/bundle/release/app-release.aab"
+          jarsigner -verify -verbose -certs "$AAB"
 
     artifacts:
       - android/app/build/outputs/**/*.aab
