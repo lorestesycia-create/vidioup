@@ -1,0 +1,8 @@
+{
+  "appId": "com.vidioup.app",
+  "appName": "VidioUp",
+  "webDir": "www-final",
+  "server": {
+    "androidScheme": "https"
+  }
+}

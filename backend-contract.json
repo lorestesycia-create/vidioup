@@ -1,0 +1,69 @@
+{
+  "version": "v1",
+  "server_authoritative": true,
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/auth/register"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login"
+    },
+    {
+      "method": "GET",
+      "path": "/feed"
+    },
+    {
+      "method": "POST",
+      "path": "/videos/validate"
+    },
+    {
+      "method": "POST",
+      "path": "/campaigns"
+    },
+    {
+      "method": "POST",
+      "path": "/campaigns/{id}/activate"
+    },
+    {
+      "method": "POST",
+      "path": "/campaigns/{id}/pause"
+    },
+    {
+      "method": "POST",
+      "path": "/campaigns/{id}/resume"
+    },
+    {
+      "method": "GET",
+      "path": "/campaigns/{id}/stats"
+    },
+    {
+      "method": "GET",
+      "path": "/wallet"
+    },
+    {
+      "method": "GET",
+      "path": "/ledger"
+    },
+    {
+      "method": "POST",
+      "path": "/rewards/admob/verify"
+    },
+    {
+      "method": "POST",
+      "path": "/purchases/google/verify"
+    },
+    {
+      "method": "POST",
+      "path": "/reports"
+    }
+  ],
+  "rules": [
+    "Client never changes wallet balances directly",
+    "Purchases and rewarded events are idempotent",
+    "Campaign activation atomically moves available coins to reserved",
+    "Valid internal distribution atomically moves reserved coins to consumed",
+    "Unused reserved balance returns to available when campaign ends"
+  ]
+}

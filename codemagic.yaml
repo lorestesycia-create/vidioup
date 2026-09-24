@@ -1,0 +1,47 @@
+workflows:
+  android-release:
+    name: VidioUp Android AAB
+    environment:
+      node: 22
+      java: 21
+    scripts:
+      - name: Install
+        script: npm install
+      - name: Bundle web
+        script: |
+          rm -rf www-final && mkdir www-final
+          npx esbuild www/app.js --bundle --platform=browser --format=iife --outfile=www-final/app.js
+          cp www/index.html www/style.css www/config.json www/icon.png www-final/
+      - name: Add Android
+        script: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+      - name: Configure Android
+        script: |
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest=Path('android/app/src/main/AndroidManifest.xml')
+          text=manifest.read_text()
+          marker='<application'
+          start=text.index(marker)
+          end=text.index('>', start)+1
+          meta='\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-8854680295966508~6489002203" />'
+          if 'com.google.android.gms.ads.APPLICATION_ID' not in text:
+              text=text[:end]+meta+text[end:]
+          manifest.write_text(text)
+          variables=Path('android/variables.gradle')
+          v=variables.read_text()
+          import re
+          v=re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 23', v)
+          v=re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', v)
+          variables.write_text(v)
+          PY
+          sed -i 's/versionCode [0-9]*/versionCode 1/' android/app/build.gradle
+          sed -i 's/versionName "[^"]*"/versionName "1.0"/' android/app/build.gradle
+      - name: Build AAB
+        script: |
+          cd android
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
