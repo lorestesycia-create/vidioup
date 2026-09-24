@@ -1,0 +1,53 @@
+{
+  "economy": {
+    "welcome_bonus": 100,
+    "rewarded_coin_reward": 25,
+    "rewarded_daily_limit": 8,
+    "rewarded_cooldown_minutes": 0,
+    "campaign_min_budget": 100,
+    "campaign_max_budget": 50000,
+    "max_active_campaigns_per_user": 5,
+    "base_distribution_cost": 1,
+    "featured_multiplier": 2,
+    "boost_multiplier": 4
+  },
+  "store": [
+    {
+      "sku": "coins_1000",
+      "coins": 1000,
+      "price_eur": 1.99
+    },
+    {
+      "sku": "coins_3000",
+      "coins": 3000,
+      "price_eur": 4.99
+    },
+    {
+      "sku": "coins_7000",
+      "coins": 7000,
+      "price_eur": 9.99
+    },
+    {
+      "sku": "coins_16000",
+      "coins": 16000,
+      "price_eur": 19.99
+    }
+  ],
+  "campaign_modes": {
+    "basic": "Básica",
+    "featured": "Destacada",
+    "boost": "Impulso"
+  },
+  "services": {
+    "admob_app_id": "ca-app-pub-8854680295966508~6489002203",
+    "rewarded_ad_unit_id": "ca-app-pub-8854680295966508/7360239906",
+    "supabase_url": "https://mxpppwntineyndpghnlli.supabase.co",
+    "supabase_publishable_key": "sb_publishable_UgUN-Sv0b9M6rUa-jtCyvw_zmPyedan"
+  },
+  "app": {
+    "name": "VidioUp",
+    "package": "com.vidioup.app",
+    "versionName": "1.0",
+    "versionCode": 1
+  }
+}
