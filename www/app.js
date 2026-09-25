@@ -2,18 +2,12 @@ import { Capacitor } from '@capacitor/core';
 import { AdMob, AdmobConsentStatus } from '@capacitor-community/admob';
 
 const $ = s => document.querySelector(s);
-let cfg = null;
+let cfg;
 
 const state = {
   tab: 'inicio',
   session: null,
-  user: {
-    name: 'Creador',
-    email: '',
-    coins: 0,
-    reserved: 0
-  },
-  favorites: [],
+  user: { name: 'Creador', email: '', coins: 0, reserved: 0 },
   campaigns: [],
   feed: [],
   rewardStatus: {
@@ -26,228 +20,175 @@ const state = {
   authMode: 'login'
 };
 
-function esc(s = '') {
-  return String(s).replace(/[&<>"']/g, m => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[m]));
-}
+const esc = (s='') => String(s).replace(/[&<>"']/g,m=>({
+  '&':'&amp;',
+  '<':'&lt;',
+  '>':'&gt;',
+  '"':'&quot;',
+  "'":'&#39;'
+}[m]));
 
-function money(n) {
-  return Number(n || 0).toLocaleString('es-ES');
-}
+const money = n => Number(n||0).toLocaleString('es-ES');
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
-function apiHeaders(token) {
-  return {
-    apikey: cfg.services.supabase_publishable_key,
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  };
-}
+const headers = token => ({
+  apikey: cfg.services.supabase_publishable_key,
+  Authorization: `Bearer ${token}`,
+  'Content-Type':'application/json'
+});
 
-async function sb(path, opts = {}, attempt = 0) {
-  const r = await fetch(
-    `${cfg.services.supabase_url}${path}`,
-    opts
-  );
+async function sb(path, opts={}, attempt=0){
+  const r = await fetch(`${cfg.services.supabase_url}${path}`, opts);
 
-  let data = null;
+  let data=null;
+  try{
+    data=await r.json();
+  }catch{}
 
-  try {
-    data = await r.json();
-  } catch {}
-
-  if (!r.ok) {
-    const message =
+  if(!r.ok){
+    const msg =
       data?.msg ||
       data?.message ||
       data?.error_description ||
       data?.error ||
       `Error ${r.status}`;
 
-    if (
+    if(
       attempt < 2 &&
       (
-        /JWT issued at future/i.test(message) ||
-        /PGRST303/i.test(message)
+        /JWT issued at future/i.test(msg) ||
+        /PGRST303/i.test(msg)
       )
-    ) {
-      await new Promise(resolve =>
-        setTimeout(resolve, 700 * (attempt + 1))
-      );
-
-      return sb(path, opts, attempt + 1);
+    ){
+      await sleep(700*(attempt+1));
+      return sb(path,opts,attempt+1);
     }
 
-    throw new Error(message);
+    throw new Error(msg);
   }
 
   return data;
 }
 
-function saveSession(s) {
-  state.session = s;
+function saveSession(s){
+  state.session=s;
 
-  if (s) {
+  if(s){
     localStorage.setItem(
       'vidioup_session',
       JSON.stringify(s)
     );
-  } else {
-    localStorage.removeItem('vidioup_session');
+  }else{
+    localStorage.removeItem(
+      'vidioup_session'
+    );
   }
 }
 
-async function signIn(email, password) {
-  return sb('/auth/v1/token?grant_type=password', {
-    method: 'POST',
-    headers: {
-      apikey: cfg.services.supabase_publishable_key,
-      'Content-Type': 'application/json'
+const signIn=(email,password)=>
+  sb('/auth/v1/token?grant_type=password',{
+    method:'POST',
+    headers:{
+      apikey:cfg.services.supabase_publishable_key,
+      'Content-Type':'application/json'
     },
-    body: JSON.stringify({
-      email,
-      password
-    })
+    body:JSON.stringify({email,password})
   });
-}
 
-async function signUp(email, password) {
-  return sb('/auth/v1/signup', {
-    method: 'POST',
-    headers: {
-      apikey: cfg.services.supabase_publishable_key,
-      'Content-Type': 'application/json'
+const signUp=(email,password)=>
+  sb('/auth/v1/signup',{
+    method:'POST',
+    headers:{
+      apikey:cfg.services.supabase_publishable_key,
+      'Content-Type':'application/json'
     },
-    body: JSON.stringify({
-      email,
-      password
-    })
+    body:JSON.stringify({email,password})
   });
-}
 
-async function refreshSession(refresh_token) {
-  return sb(
-    '/auth/v1/token?grant_type=refresh_token',
-    {
-      method: 'POST',
-      headers: {
-        apikey: cfg.services.supabase_publishable_key,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        refresh_token
-      })
-    }
-  );
-}
+const refreshSession=refresh_token=>
+  sb('/auth/v1/token?grant_type=refresh_token',{
+    method:'POST',
+    headers:{
+      apikey:cfg.services.supabase_publishable_key,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({refresh_token})
+  });
 
-async function rpc(name, body = {}) {
-  return sb(`/rest/v1/rpc/${name}`, {
-    method: 'POST',
-    headers: apiHeaders(
-      state.session.access_token
+const rpc=(name,body={})=>
+  sb(`/rest/v1/rpc/${name}`,{
+    method:'POST',
+    headers:headers(state.session.access_token),
+    body:JSON.stringify(body)
+  });
+
+async function loadAccount(){
+  const t=state.session.access_token;
+  const uid=state.session.user.id;
+
+  const [p,w]=await Promise.all([
+    sb(
+      `/rest/v1/users?id=eq.${encodeURIComponent(uid)}&select=id,email,display_name,status`,
+      {headers:headers(t)}
     ),
-    body: JSON.stringify(body)
-  });
-}
+    sb(
+      `/rest/v1/wallets?user_id=eq.${encodeURIComponent(uid)}&select=available_coins,reserved_coins`,
+      {headers:headers(t)}
+    )
+  ]);
 
-async function loadAccount() {
-  const t = state.session.access_token;
-  const uid = state.session.user.id;
-
-  const [profiles, wallets] =
-    await Promise.all([
-      sb(
-        `/rest/v1/users?id=eq.${encodeURIComponent(uid)}&select=id,email,display_name,status`,
-        {
-          headers: apiHeaders(t)
-        }
-      ),
-      sb(
-        `/rest/v1/wallets?user_id=eq.${encodeURIComponent(uid)}&select=available_coins,reserved_coins`,
-        {
-          headers: apiHeaders(t)
-        }
-      )
-    ]);
-
-  const p = profiles?.[0];
-  const w = wallets?.[0];
-
-  if (!p || !w) {
+  if(!p?.[0]||!w?.[0]){
     throw new Error(
       'La cuenta existe, pero su perfil o monedero no está preparado.'
     );
   }
 
-  state.user = {
-    name: p.display_name || 'Usuario',
-    email:
-      p.email ||
-      state.session.user.email ||
-      '',
-    coins: w.available_coins,
-    reserved: w.reserved_coins
+  state.user={
+    name:p[0].display_name||'Usuario',
+    email:p[0].email||state.session.user.email||'',
+    coins:w[0].available_coins,
+    reserved:w[0].reserved_coins
   };
 }
 
-async function loadCampaigns() {
-  const rows =
-    await rpc('get_my_campaigns_v2');
-
-  state.campaigns =
-    Array.isArray(rows) ? rows : [];
+async function loadCampaigns(){
+  const rows=await rpc('get_my_campaigns_v2');
+  state.campaigns=Array.isArray(rows)?rows:[];
 }
 
-async function loadFeed() {
-  const rows =
-    await rpc('get_home_feed');
-
-  state.feed =
-    Array.isArray(rows) ? rows : [];
+async function loadFeed(){
+  const rows=await rpc('get_home_feed');
+  state.feed=Array.isArray(rows)?rows:[];
 }
 
-async function loadRewardStatus() {
-  const status =
-    await rpc('get_reward_status');
+async function loadRewardStatus(){
+  const s=await rpc('get_reward_status');
 
-  state.rewardStatus = {
-    used_today:
-      Number(status?.used_today || 0),
-
-    pending_today:
-      Number(status?.pending_today || 0),
-
-    daily_limit:
-      Number(
-        status?.daily_limit ||
-        cfg.economy.rewarded_daily_limit
-      ),
-
-    remaining_today:
-      Number(
-        status?.remaining_today ??
-        cfg.economy.rewarded_daily_limit
-      )
+  state.rewardStatus={
+    used_today:Number(s?.used_today||0),
+    pending_today:Number(s?.pending_today||0),
+    daily_limit:Number(
+      s?.daily_limit||
+      cfg.economy.rewarded_daily_limit
+    ),
+    remaining_today:Number(
+      s?.remaining_today??
+      cfg.economy.rewarded_daily_limit
+    )
   };
 }
 
-async function loadAppData() {
-  await Promise.all([
+const loadAppData=()=>
+  Promise.all([
     loadAccount(),
     loadCampaigns(),
     loadFeed(),
     loadRewardStatus()
   ]);
-}
 
-function authView() {
-  const signup =
-    state.authMode === 'signup';
+function authView(){
+  const signup=
+    state.authMode==='signup';
 
   return `
     <div class="auth">
@@ -370,7 +311,7 @@ function authView() {
   `;
 }
 
-function top(title) {
+function top(title){
   return `
     <header class="top">
 
@@ -396,17 +337,16 @@ function top(title) {
   `;
 }
 
-function card(x) {
-  return `
-    <section class="card">
-      ${x}
-    </section>
-  `;
-}
+const card=x=>`
+  <section class="card">
+    ${x}
+  </section>
+`;
 
-function render() {
-  if (state.loading) {
-    $('#app').innerHTML = `
+function render(){
+
+  if(state.loading){
+    $('#app').innerHTML=`
       <div class="splash">
         <img src="icon.png">
         <b>VidioUp</b>
@@ -414,98 +354,71 @@ function render() {
       </div>
     `;
 
-    document.querySelector('nav').hidden =
-      true;
-
+    document.querySelector('nav').hidden=true;
     return;
   }
 
-  if (!state.session) {
-    $('#app').innerHTML =
-      authView();
-
-    document.querySelector('nav').hidden =
-      true;
-
+  if(!state.session){
+    $('#app').innerHTML=authView();
+    document.querySelector('nav').hidden=true;
     return;
   }
 
-  document.querySelector('nav').hidden =
-    false;
+  document.querySelector('nav').hidden=false;
 
-  let body = '';
+  const views={
+    inicio:home,
+    promocionar:promote,
+    monedas:wallet,
+    campanas:campaigns,
+    perfil:profile
+  };
 
-  if (state.tab === 'inicio') {
-    body = home();
-  }
+  const titles={
+    inicio:'Descubre vídeos',
+    promocionar:'Promociona tu vídeo',
+    monedas:'Monedas',
+    campanas:'Campañas',
+    perfil:'Perfil'
+  };
 
-  if (state.tab === 'promocionar') {
-    body = promote();
-  }
-
-  if (state.tab === 'monedas') {
-    body = wallet();
-  }
-
-  if (state.tab === 'campanas') {
-    body = campaigns();
-  }
-
-  if (state.tab === 'perfil') {
-    body = profile();
-  }
-
-  $('#app').innerHTML =
-    top({
-      inicio: 'Descubre vídeos',
-      promocionar: 'Promociona tu vídeo',
-      monedas: 'Monedas',
-      campanas: 'Campañas',
-      perfil: 'Perfil'
-    }[state.tab]) +
-    `<main>${body}</main>`;
+  $('#app').innerHTML=
+    top(titles[state.tab])+
+    `<main>${views[state.tab]()}</main>`;
 
   document
     .querySelectorAll('nav button')
-    .forEach(b =>
+    .forEach(b=>
       b.classList.toggle(
         'active',
-        b.dataset.tab === state.tab
+        b.dataset.tab===state.tab
       )
     );
 
-  if (state.tab === 'inicio') {
+  if(state.tab==='inicio'){
     setupFeedImpressions();
   }
 }
 
-function home() {
-  const items =
+function home(){
+
+  const items=
     state.feed.length
-      ? state.feed.map(item => {
 
-          const modeLabel = {
-            basic: 'PROMOCIONADO',
-            featured: 'DESTACADO',
-            boost: 'IMPULSO'
-          }[item.mode] || 'PROMOCIONADO';
+      ? state.feed.map(v=>{
 
-          const title =
-            item.video_title ||
-            'Vídeo promocionado';
+          const label={
+            basic:'PROMOCIONADO',
+            featured:'DESTACADO',
+            boost:'IMPULSO'
+          }[v.mode]||'PROMOCIONADO';
 
-          const meta = [
-            item.category,
-            item.creator_name
-          ]
-            .filter(Boolean)
-            .join(' · ');
+          const thumb=
+            v.thumbnail_url
 
-          const thumb =
-            item.thumbnail_url
               ? `
                 <img
-                  src="${esc(item.thumbnail_url)}"
+                  src="${esc(v.thumbnail_url)}"
                   alt="Miniatura del vídeo"
                   loading="lazy"
                   style="
@@ -514,33 +427,46 @@ function home() {
                     object-fit:cover;
                     border-radius:16px;
                     margin:12px 0;
-                    background:#0e111a;
+                    background:#0e111a
                   "
                 >
               `
+
               : `
                 <div class="thumb">
                   ▶
                 </div>
               `;
 
+          const meta=[
+            v.category,
+            v.creator_name
+          ]
+            .filter(Boolean)
+            .join(' · ');
+
           return card(`
+
             <div
-              class="feed-item"
               data-feed-impression
               data-campaign-id="${
-                esc(item.campaign_id)
+                esc(v.campaign_id)
               }"
             >
 
               <span class="pill">
-                ${esc(modeLabel)}
+                ${esc(label)}
               </span>
 
               ${thumb}
 
               <h2>
-                ${esc(title)}
+                ${
+                  esc(
+                    v.video_title ||
+                    'Vídeo promocionado'
+                  )
+                }
               </h2>
 
               <p class="muted">
@@ -558,13 +484,13 @@ function home() {
                   class="btn"
                   data-action="open-youtube"
                   data-campaign-id="${
-                    esc(item.campaign_id)
+                    esc(v.campaign_id)
                   }"
                   data-video-id="${
-                    esc(item.video_id)
+                    esc(v.video_id)
                   }"
                   data-youtube-url="${
-                    esc(item.youtube_url)
+                    esc(v.youtube_url)
                   }"
                 >
                   Abrir en YouTube
@@ -574,11 +500,11 @@ function home() {
                   class="ghost"
                   data-action="toggle-favorite"
                   data-video-id="${
-                    esc(item.video_id)
+                    esc(v.video_id)
                   }"
                 >
                   ${
-                    item.is_favorite
+                    v.is_favorite
                       ? '★ Guardado'
                       : '☆ Guardar'
                   }
@@ -604,6 +530,7 @@ function home() {
         `);
 
   return `
+
     <div class="hero">
 
       <b>
@@ -619,91 +546,93 @@ function home() {
 
     ${items}
 
-    ${card(`
-      <span class="pill soft">
-        CÓMO FUNCIONA
-      </span>
+    ${
+      card(`
+        <span class="pill soft">
+          CÓMO FUNCIONA
+        </span>
 
-      <h2>
-        Descubrimiento dentro de VidioUp
-      </h2>
+        <h2>
+          Descubrimiento dentro de VidioUp
+        </h2>
 
-      <p>
-        VidioUp muestra campañas de creadores
-        dentro de la aplicación.
-        Si un vídeo te interesa,
-        puedes abrirlo directamente en YouTube.
-      </p>
+        <p>
+          VidioUp muestra campañas de creadores
+          dentro de la aplicación.
+          Si un vídeo te interesa,
+          puedes abrirlo directamente en YouTube.
+        </p>
 
-      <p class="muted">
-        VidioUp no vende reproducciones,
-        Me gusta ni suscripciones.
-      </p>
-    `)}
+        <p class="muted">
+          VidioUp no vende reproducciones,
+          Me gusta ni suscripciones.
+        </p>
+      `)
+    }
   `;
 }
 
-function setupFeedImpressions() {
-  const nodes =
+function setupFeedImpressions(){
+
+  const nodes=
     document.querySelectorAll(
       '[data-feed-impression]'
     );
 
-  if (!nodes.length) {
+  if(!nodes.length){
     return;
   }
 
-  const observer =
+  const obs=
     new IntersectionObserver(
-      entries => {
+      entries=>
+        entries.forEach(async e=>{
 
-        entries.forEach(
-          async entry => {
-
-            if (
-              !entry.isIntersecting ||
-              entry.intersectionRatio < 0.6
-            ) {
-              return;
-            }
-
-            const el = entry.target;
-
-            if (
-              el.dataset.impressionSent === '1'
-            ) {
-              observer.unobserve(el);
-              return;
-            }
-
-            el.dataset.impressionSent = '1';
-
-            observer.unobserve(el);
-
-            try {
-              await rpc(
-                'record_campaign_impression',
-                {
-                  p_campaign_id:
-                    el.dataset.campaignId
-                }
-              );
-            } catch {}
+          if(
+            !e.isIntersecting ||
+            e.intersectionRatio<0.6
+          ){
+            return;
           }
-        );
-      },
+
+          const el=e.target;
+
+          if(
+            el.dataset.impressionSent==='1'
+          ){
+            obs.unobserve(el);
+            return;
+          }
+
+          el.dataset.impressionSent='1';
+
+          obs.unobserve(el);
+
+          try{
+            await rpc(
+              'record_campaign_impression',
+              {
+                p_campaign_id:
+                  el.dataset.campaignId
+              }
+            );
+          }catch{}
+
+        }),
       {
-        threshold: [0.6]
+        threshold:[0.6]
       }
     );
 
-  nodes.forEach(node =>
-    observer.observe(node)
+  nodes.forEach(n=>
+    obs.observe(n)
   );
 }
 
-function promote() {
+function promote(){
+
   return card(`
+
     <h2>
       Nueva campaña
     </h2>
@@ -771,11 +700,13 @@ function promote() {
     <p class="muted">
 
       El presupuesto mínimo es
+
       ${
         money(
           cfg.economy.campaign_min_budget
         )
       }
+
       monedas.
 
       La modalidad indica cuántas monedas
@@ -793,36 +724,39 @@ function promote() {
     </button>
 
     <div id="preview"></div>
+
   `);
 }
 
-function wallet() {
-  const reward =
-    state.rewardStatus || {};
+function wallet(){
 
-  const dailyLimit =
+  const r=
+    state.rewardStatus;
+
+  const limit=
     Number(
-      reward.daily_limit ||
+      r.daily_limit ||
       cfg.economy.rewarded_daily_limit
     );
 
-  const remainingToday =
+  const left=
     Number(
-      reward.remaining_today ??
-      dailyLimit
+      r.remaining_today ??
+      limit
     );
 
-  const usedToday =
+  const used=
     Number(
-      reward.used_today || 0
+      r.used_today || 0
     );
 
-  const pendingToday =
+  const pending=
     Number(
-      reward.pending_today || 0
+      r.pending_today || 0
     );
 
   return `
+
     <div class="balance">
 
       <span>
@@ -840,111 +774,119 @@ function wallet() {
 
     </div>
 
-    ${card(`
+    ${
+      card(`
 
-      <h2>
-        Conseguir monedas
-      </h2>
+        <h2>
+          Conseguir monedas
+        </h2>
 
-      <p>
-        <b>
-          ${
-            cfg.economy.rewarded_coin_reward
-          }
-        </b>
-        monedas por anuncio recompensado.
-      </p>
+        <p>
+          <b>
+            ${
+              cfg.economy.rewarded_coin_reward
+            }
+          </b>
+          monedas por anuncio recompensado.
+        </p>
 
-      <p class="muted">
-        Hoy has recibido
-        ${usedToday}
-        de
-        ${dailyLimit}.
+        <p class="muted">
+          Hoy has recibido
+          ${used}
+          de
+          ${limit}.
+          Te quedan
+          ${left}.
+        </p>
 
-        Te quedan
-        ${remainingToday}.
-      </p>
-
-      ${
-        pendingToday > 0
-          ? `
-            <p class="notice">
-              Recompensas pendientes de
-              verificación:
-              ${pendingToday}
-            </p>
-          `
-          : ''
-      }
-
-      <button
-        class="btn wide"
-        data-action="rewarded"
         ${
-          remainingToday <= 0
-            ? 'disabled'
+          pending
+            ? `
+              <p class="notice">
+                Recompensas pendientes
+                de verificación:
+                ${pending}
+              </p>
+            `
             : ''
         }
-      >
-        ${
-          remainingToday > 0
-            ? 'Ver anuncio'
-            : 'Límite diario alcanzado'
-        }
-      </button>
 
-      <p class="notice">
-        Las monedas se acreditan cuando
-        AdMob confirma la recompensa.
-      </p>
+        <button
+          class="btn wide"
+          data-action="rewarded"
+          ${
+            left<=0
+              ? 'disabled'
+              : ''
+          }
+        >
+          ${
+            left>0
+              ? 'Ver anuncio'
+              : 'Límite diario alcanzado'
+          }
+        </button>
 
-    `)}
+        <p class="notice">
+          Las monedas se acreditan cuando
+          AdMob confirma la recompensa.
+        </p>
 
-    ${card(`
+      `)
+    }
 
-      <h2>
-        Tienda
-      </h2>
+    ${
+      card(`
 
-      <div class="shop">
+        <h2>
+          Tienda
+        </h2>
 
-        ${
-          cfg.store.map(x => `
-            <button
-              class="pack"
-              data-sku="${x.sku}"
-            >
+        <div class="shop">
 
-              <b>
-                ${money(x.coins)}
-              </b>
+          ${
+            cfg.store.map(x=>`
 
-              <span>
-                monedas
-              </span>
+              <button
+                class="pack"
+                data-sku="${x.sku}"
+              >
 
-              <strong>
-                ${
-                  x.price_eur
-                    .toFixed(2)
-                    .replace('.', ',')
-                }
-                €
-              </strong>
+                <b>
+                  ${money(x.coins)}
+                </b>
 
-            </button>
-          `).join('')
-        }
+                <span>
+                  monedas
+                </span>
 
-      </div>
+                <strong>
+                  ${
+                    x.price_eur
+                      .toFixed(2)
+                      .replace('.',',')
+                  }
+                  €
+                </strong>
 
-    `)}
+              </button>
+
+            `).join('')
+          }
+
+        </div>
+
+      `)
+    }
   `;
 }
 
-function campaigns() {
-  if (!state.campaigns.length) {
+function campaigns(){
+
+  if(!state.campaigns.length){
+
     return card(`
+
       <h2>
         Sin campañas
       </h2>
@@ -960,22 +902,24 @@ function campaigns() {
       >
         Crear campaña
       </button>
+
     `);
   }
 
   return state.campaigns
-    .map(c => {
+    .map(c=>{
 
-      const id =
-        esc(c.id || '');
+      const id=
+        esc(c.id||'');
 
-      const status =
-        String(c.status || '');
+      const status=
+        String(c.status||'');
 
-      let actions = '';
+      let actions='';
 
-      if (status === 'active') {
-        actions += `
+      if(status==='active'){
+
+        actions+=`
           <button
             class="ghost"
             data-campaign-id="${id}"
@@ -986,8 +930,9 @@ function campaigns() {
         `;
       }
 
-      if (status === 'paused') {
-        actions += `
+      if(status==='paused'){
+
+        actions+=`
           <button
             class="btn"
             data-campaign-id="${id}"
@@ -998,13 +943,14 @@ function campaigns() {
         `;
       }
 
-      if (
+      if(
         ![
           'cancelled',
           'completed'
         ].includes(status)
-      ) {
-        actions += `
+      ){
+
+        actions+=`
           <button
             class="ghost"
             data-campaign-id="${id}"
@@ -1015,29 +961,34 @@ function campaigns() {
         `;
       }
 
-      const modeName = {
-        basic: 'Básica',
-        featured: 'Destacada',
-        boost: 'Impulso'
-      }[c.mode] ||
-      c.mode ||
+      const mode={
+        basic:'Básica',
+        featured:'Destacada',
+        boost:'Impulso'
+      }[c.mode]||
+      c.mode||
       'Campaña';
 
-      const statusName = {
-        active: 'Activa',
-        paused: 'Pausada',
-        cancelled: 'Cancelada',
-        completed: 'Completada',
-        draft: 'Borrador',
-        removed: 'Retirada'
-      }[status] ||
-      status ||
+      const st={
+        active:'Activa',
+        paused:'Pausada',
+        cancelled:'Cancelada',
+        completed:'Completada',
+        draft:'Borrador',
+        removed:'Retirada'
+      }[status]||
+      status||
       '—';
+
+      const cost=
+        Number(
+          c.cost_per_impression||0
+        );
 
       return card(`
 
         <span class="pill">
-          ${esc(modeName)}
+          ${esc(mode)}
         </span>
 
         <h2>
@@ -1051,14 +1002,14 @@ function campaigns() {
         </h2>
 
         <p class="muted">
-          ${esc(c.youtube_url || '')}
+          ${esc(c.youtube_url||'')}
         </p>
 
         <p>
           Presupuesto:
           ${
             money(
-              c.initial_budget ?? 0
+              c.initial_budget??0
             )
           }
 
@@ -1066,7 +1017,7 @@ function campaigns() {
 
           ${
             money(
-              c.remaining_budget ?? 0
+              c.remaining_budget??0
             )
           }
         </p>
@@ -1075,12 +1026,798 @@ function campaigns() {
 
           Coste por impresión:
 
-          ${
-            money(
-              c.cost_per_impression || 0
-            )
-          }
+          ${money(cost)}
 
           ${
-            Number(
-              c.
+            cost===1
+              ? 'moneda'
+              : 'monedas'
+          }
+
+          · Estado:
+
+          ${esc(st)}
+
+        </p>
+
+        <div class="row">
+          ${actions}
+        </div>
+
+      `);
+
+    })
+    .join('');
+}
+
+function profile(){
+
+  return `
+
+    ${
+      card(`
+
+        <div class="profile">
+
+          <div class="avatar">
+            ${
+              esc(
+                (
+                  state.user.name||
+                  'V'
+                )[0].toUpperCase()
+              )
+            }
+          </div>
+
+          <div>
+
+            <h2>
+              ${esc(state.user.name)}
+            </h2>
+
+            <p class="muted">
+              ${esc(state.user.email)}
+            </p>
+
+          </div>
+
+        </div>
+
+      `)
+    }
+
+    ${
+      card(`
+
+        <div class="menu">
+
+          <button>
+            ♡ Favoritos
+          </button>
+
+          <button>
+            🔔 Notificaciones
+          </button>
+
+          <button>
+            🔐 Cuenta y seguridad
+          </button>
+
+          <button>
+            ⊘  Usuarios bloqueados
+          </button>
+
+          <button>
+            Ayuda y soporte
+          </button>
+
+          <button>
+            ⚑ Denunciar contenido
+          </button>
+
+          <button>
+            § Legal y privacidad
+          </button>
+
+          <button
+            class="danger"
+            data-action="logout"
+          >
+            Cerrar sesión
+          </button>
+
+        </div>
+
+      `)
+    }
+  `;
+}
+
+let admobReady=false;
+
+async function ensureAdMob(){
+  if(admobReady) return true;
+
+  if(Capacitor.getPlatform()==='web'){
+    throw new Error(
+      'Los anuncios solo están disponibles en la app Android.'
+    );
+  }
+
+  await AdMob.initialize();
+
+  let consent=
+    await AdMob.requestConsentInfo();
+
+  if(
+    consent.isConsentFormAvailable &&
+    consent.status===AdmobConsentStatus.REQUIRED
+  ){
+    consent=
+      await AdMob.showConsentForm();
+  }
+
+  if(!consent.canRequestAds){
+    throw new Error(
+      'Todavía no se pueden solicitar anuncios.'
+    );
+  }
+
+  admobReady=true;
+  return true;
+}
+
+async function showRewarded(){
+  if(!state.session?.user?.id){
+    throw new Error(
+      'Inicia sesión de nuevo.'
+    );
+  }
+
+  if(
+    (state.rewardStatus?.remaining_today??1)<=0
+  ){
+    throw new Error(
+      'Has alcanzado el límite diario de anuncios.'
+    );
+  }
+
+  await ensureAdMob();
+
+  const eventId=crypto.randomUUID();
+  const start=Number(state.user.coins||0);
+
+  await AdMob.prepareRewardVideoAd({
+    adId:cfg.services.rewarded_ad_unit_id,
+    isTesting:false,
+    ssv:{
+      userId:state.session.user.id,
+      customData:eventId
+    }
+  });
+
+  const reward=
+    await AdMob.showRewardVideoAd();
+
+  if(
+    !reward ||
+    Number(reward.amount||0)<=0
+  ){
+    throw new Error(
+      'El anuncio terminó sin generar una recompensa.'
+    );
+  }
+
+  try{
+    await rpc(
+      'register_rewarded_pending',
+      {
+        p_external_event_id:eventId
+      }
+    );
+  }catch(x){
+    if(
+      /DAILY_LIMIT_REACHED/i.test(
+        x.message||''
+      )
+    ){
+      throw new Error(
+        'Has alcanzado el límite diario de anuncios.'
+      );
+    }
+
+    throw x;
+  }
+
+  for(
+    const ms of [1000,2000,3000,5000,8000]
+  ){
+    await sleep(ms);
+
+    try{
+      await Promise.all([
+        loadAccount(),
+        loadRewardStatus()
+      ]);
+
+      if(Number(state.user.coins)>start){
+        render();
+
+        toast(
+          `+${cfg.economy.rewarded_coin_reward} monedas acreditadas.`
+        );
+
+        return;
+      }
+    }catch{}
+  }
+
+  try{
+    await Promise.all([
+      loadAccount(),
+      loadRewardStatus()
+    ]);
+  }catch{}
+
+  render();
+
+  toast(
+    'Anuncio completado. Recompensa pendiente de verificación.'
+  );
+}
+
+function toast(msg){
+  const t=document.createElement('div');
+
+  t.className='toast';
+  t.textContent=msg;
+
+  document.body.appendChild(t);
+
+  setTimeout(
+    ()=>t.remove(),
+    2600
+  );
+}
+
+async function refreshTab(tab){
+  if(tab==='inicio'){
+    await loadFeed();
+  }
+
+  if(tab==='monedas'){
+    await Promise.all([
+      loadAccount(),
+      loadRewardStatus()
+    ]);
+  }
+}
+
+document.addEventListener(
+  'submit',
+  async e=>{
+
+    if(e.target.id==='signupForm'){
+      e.preventDefault();
+
+      const btn=
+        e.target.querySelector(
+          'button[type="submit"]'
+        );
+
+      const err=$('#authError');
+
+      const email=
+        $('#email').value.trim();
+
+      const pass=
+        $('#password').value;
+
+      const confirm=
+        $('#passwordConfirm').value;
+
+      err.textContent='';
+
+      if(pass.length<6){
+        err.textContent=
+          'La contraseña debe tener al menos 6 caracteres.';
+        return;
+      }
+
+      if(pass!==confirm){
+        err.textContent=
+          'Las contraseñas no coinciden.';
+        return;
+      }
+
+      btn.disabled=true;
+      btn.textContent='Creando cuenta…';
+
+      try{
+        const s=
+          await signUp(email,pass);
+
+        if(
+          s?.access_token &&
+          s?.user
+        ){
+          saveSession(s);
+          await loadAppData();
+          render();
+          return;
+        }
+
+        state.authMode='login';
+        render();
+
+        $('#authSuccess').textContent=
+          'Cuenta creada. Revisa tu correo y confirma tu dirección. Después podrás iniciar sesión.';
+
+      }catch(x){
+        err.textContent=
+          x.message==='User already registered'
+            ? 'Ya existe una cuenta con ese correo.'
+            : (
+                x.message ||
+                'No se pudo crear la cuenta.'
+              );
+
+        btn.disabled=false;
+        btn.textContent='Crear cuenta';
+      }
+
+      return;
+    }
+
+    if(e.target.id!=='loginForm'){
+      return;
+    }
+
+    e.preventDefault();
+
+    const btn=
+      e.target.querySelector('button');
+
+    const err=$('#authError');
+
+    btn.disabled=true;
+    btn.textContent='Entrando…';
+    err.textContent='';
+
+    try{
+      const s=
+        await signIn(
+          $('#email').value.trim(),
+          $('#password').value
+        );
+
+      saveSession(s);
+      await loadAppData();
+      render();
+
+    }catch(x){
+      saveSession(null);
+
+      err.textContent=
+        x.message==='Invalid login credentials'
+          ? 'Correo o contraseña incorrectos.'
+          : x.message;
+
+      btn.disabled=false;
+      btn.textContent='Iniciar sesión';
+    }
+  }
+);
+
+document.addEventListener(
+  'click',
+  async e=>{
+
+    const tab=
+      e.target
+        .closest('[data-tab]')
+        ?.dataset.tab;
+
+    if(tab){
+      state.tab=tab;
+
+      try{
+        await refreshTab(tab);
+      }catch{}
+
+      render();
+      return;
+    }
+
+    const target=
+      e.target.closest('[data-action]');
+
+    const a=
+      target?.dataset.action;
+
+    if(a==='show-signup'){
+      state.authMode='signup';
+      render();
+      return;
+    }
+
+    if(a==='show-login'){
+      state.authMode='login';
+      render();
+      return;
+    }
+
+    if(a==='wallet'){
+      state.tab='monedas';
+
+      try{
+        await refreshTab('monedas');
+      }catch{}
+
+      render();
+      return;
+    }
+
+    if(a==='go-promote'){
+      state.tab='promocionar';
+      render();
+      return;
+    }
+
+    if(a==='logout'){
+      saveSession(null);
+
+      state.authMode='login';
+
+      state.user={
+        name:'Creador',
+        email:'',
+        coins:0,
+        reserved:0
+      };
+
+      state.campaigns=[];
+      state.feed=[];
+
+      state.rewardStatus={
+        used_today:0,
+        pending_today:0,
+        daily_limit:
+          cfg?.economy?.rewarded_daily_limit||8,
+        remaining_today:
+          cfg?.economy?.rewarded_daily_limit||8
+      };
+
+      render();
+      return;
+    }
+
+    if(a==='rewarded'){
+      target.disabled=true;
+
+      try{
+        await showRewarded();
+      }catch(x){
+        toast(
+          x.message ||
+          'No se pudo mostrar el anuncio.'
+        );
+      }finally{
+        target.disabled=false;
+      }
+
+      return;
+    }
+
+    if(a==='open-youtube'){
+      const url=
+        target.dataset.youtubeUrl;
+
+      if(!url) return;
+
+      rpc(
+        'record_outbound_click',
+        {
+          p_campaign_id:
+            target.dataset.campaignId,
+
+          p_video_id:
+            target.dataset.videoId
+        }
+      ).catch(()=>{});
+
+      window.open(
+        url,
+        '_blank',
+        'noopener,noreferrer'
+      );
+
+      return;
+    }
+
+    if(a==='toggle-favorite'){
+      const id=
+        target.dataset.videoId;
+
+      const item=
+        state.feed.find(
+          x=>x.video_id===id
+        );
+
+      if(!id) return;
+
+      const saved=
+        Boolean(item?.is_favorite);
+
+      target.disabled=true;
+
+      try{
+        await rpc(
+          saved
+            ? 'remove_favorite'
+            : 'add_favorite',
+          {
+            p_video_id:id
+          }
+        );
+
+        if(item){
+          item.is_favorite=!saved;
+        }
+
+        render();
+
+        toast(
+          saved
+            ? 'Eliminado de favoritos.'
+            : 'Guardado en favoritos.'
+        );
+
+      }catch(x){
+        toast(
+          x.message ||
+          'No se pudo actualizar favoritos.'
+        );
+      }
+
+      return;
+    }
+
+    if(a==='campaign-preview'){
+      const url=
+        $('#url').value.trim();
+
+      const budget=
+        Number($('#budget').value);
+
+      const mode=
+        $('#mode').value;
+
+      if(
+        !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(
+          url
+        )
+      ){
+        toast(
+          'Introduce un enlace válido de YouTube.'
+        );
+        return;
+      }
+
+      if(
+        budget<
+          cfg.economy.campaign_min_budget ||
+        budget>
+          cfg.economy.campaign_max_budget
+      ){
+        toast(
+          'Presupuesto fuera de los límites.'
+               );
+        return;
+      }
+
+      const cost={
+        basic:1,
+        featured:2,
+        boost:4
+      }[mode]||1;
+
+      const max=
+        Math.floor(budget/cost);
+
+      $('#preview').innerHTML=`
+        <div class="review">
+
+          <b>Resumen</b>
+
+          <p>
+            ${esc(url)}
+          </p>
+
+          <p>
+            ${esc(cfg.campaign_modes[mode])}
+          </p>
+
+          <p>
+            Presupuesto:
+            ${money(budget)}
+            monedas
+          </p>
+
+          <p class="muted">
+            Coste:
+            ${cost}
+            ${
+              cost===1
+                ? 'moneda'
+                : 'monedas'
+            }
+            por impresión válida.
+          </p>
+
+          <p class="muted">
+            Hasta
+            ${money(max)}
+            impresiones internas
+            con ese presupuesto.
+          </p>
+
+          <button
+            class="btn"
+            data-action="save-draft"
+          >
+            Crear campaña
+          </button>
+
+        </div>
+      `;
+
+      return;
+    }
+
+    if(a==='save-draft'){
+      target.disabled=true;
+
+      try{
+        await rpc(
+          'create_campaign',
+          {
+            p_youtube_url:
+              $('#url').value.trim(),
+
+            p_category:
+              $('#cat').value,
+
+            p_mode:
+              $('#mode').value,
+
+            p_budget:
+              Number($('#budget').value)
+          }
+        );
+
+        await loadAppData();
+
+        toast(
+          'Campaña creada correctamente.'
+        );
+
+        state.tab='campanas';
+        render();
+
+      }catch(x){
+        toast(
+          x.message ||
+          'No se pudo crear la campaña.'
+        );
+      }
+
+      return;
+    }
+
+    if(
+      [
+        'pause-campaign',
+        'resume-campaign',
+        'cancel-campaign'
+      ].includes(a)
+    ){
+      const id=
+        target.dataset.campaignId;
+
+      const fn={
+        'pause-campaign':'pause_campaign',
+        'resume-campaign':'resume_campaign',
+        'cancel-campaign':'cancel_campaign'
+      }[a];
+
+      if(!id) return;
+
+      target.disabled=true;
+
+      try{
+        await rpc(
+          fn,
+          {
+            p_campaign_id:id
+          }
+        );
+
+        await loadAppData();
+
+        toast(
+          'Campaña actualizada.'
+        );
+
+        render();
+
+      }catch(x){
+        toast(
+          x.message ||
+          'No se pudo actualizar la campaña.'
+        );
+      }
+
+      return;
+    }
+
+    if(
+      e.target.closest('[data-sku]')
+    ){
+      toast(
+        'Las compras se activarán antes de publicar.'
+      );
+    }
+  }
+);
+
+async function boot(){
+  try{
+    cfg=
+      await fetch(
+        'config.json'
+      ).then(
+        r=>r.json()
+      );
+
+    const raw=
+      localStorage.getItem(
+        'vidioup_session'
+      );
+
+    if(raw){
+      try{
+        let s=
+          JSON.parse(raw);
+
+        if(s.refresh_token){
+          try{
+            s=
+              await refreshSession(
+                s.refresh_token
+              );
+
+            saveSession(s);
+
+          }catch{
+            saveSession(null);
+          }
+        }
+
+        if(state.session){
+          await loadAppData();
+        }
+
+      }catch{
+        saveSession(null);
+      }
+    }
+
+  }finally{
+    state.loading=false;
+    render();
+  }
+}
+
+boot();
