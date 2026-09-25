@@ -67,13 +67,13 @@ workflows:
 
           g = re.sub(
               r'versionCode\s+\d+',
-              'versionCode 1',
+              'versionCode 2',
               g
           )
 
           g = re.sub(
               r'versionName\s+"[^"]*"',
-              'versionName "1.0"',
+              'versionName "1.0.1"',
               g
           )
 
