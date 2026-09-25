@@ -1,6 +1,7 @@
 workflows:
   android-release:
     name: VidioUp Android AAB
+
     environment:
       node: 22
       java: 21
@@ -11,19 +12,90 @@ workflows:
       - name: Install
         script: |
           npm install
+          npm install --no-save @capacitor/assets@3.0.5
+          python3 -m pip install --quiet pillow
 
       - name: Bundle web
         script: |
           rm -rf www-final
           mkdir www-final
-          npx esbuild www/app.js --bundle --platform=browser --format=iife --outfile=www-final/app.js
-          cp www/index.html www/style.css www/config.json www/icon.png www-final/
+
+          npx esbuild www/app.js \
+            --bundle \
+            --platform=browser \
+            --format=iife \
+            --outfile=www-final/app.js
+
+          cp www/index.html www/style.css www/icon.png www-final/
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = Path("www/config.json")
+          target = Path("www-final/config.json")
+
+          data = json.loads(source.read_text())
+
+          data["app"]["versionName"] = "1.0.2"
+          data["app"]["versionCode"] = 3
+
+          target.write_text(
+              json.dumps(
+                  data,
+                  ensure_ascii=False,
+                  indent=2
+              )
+          )
+          PY
 
       - name: Add Android
         script: |
           rm -rf android
+
           npx cap add android
           npx cap sync android
+
+      - name: Generate VidioUp icon
+        script: |
+          rm -rf assets
+          mkdir -p assets
+
+          python3 - <<'PY'
+          from PIL import Image
+
+          source = Image.open("www/icon.png").convert("RGBA")
+
+          width, height = source.size
+          side = max(width, height)
+
+          canvas = Image.new(
+              "RGBA",
+              (side, side),
+              (255, 255, 255, 0)
+          )
+
+          x = (side - width) // 2
+          y = (side - height) // 2
+
+          canvas.alpha_composite(
+              source,
+              (x, y)
+          )
+
+          canvas = canvas.resize(
+              (1024, 1024),
+              Image.Resampling.LANCZOS
+          )
+
+          canvas.save("assets/icon.png")
+          PY
+
+          npx @capacitor/assets generate \
+            --android \
+            --assetPath assets \
+            --iconBackgroundColor '#ffffff' \
+            --iconBackgroundColorDark '#ffffff'
 
       - name: Configure Android
         script: |
@@ -31,54 +103,94 @@ workflows:
           from pathlib import Path
           import re
 
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          manifest = Path(
+              "android/app/src/main/AndroidManifest.xml"
+          )
+
           text = manifest.read_text()
 
-          marker = '<application'
+          marker = "<application"
           start = text.index(marker)
-          end = text.index('>', start) + 1
+          end = text.index(">", start) + 1
 
-          meta = '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-8854680295966508~6489002203" />'
+          meta = (
+              '\n        <meta-data '
+              'android:name="com.google.android.gms.ads.APPLICATION_ID" '
+              'android:value="ca-app-pub-8854680295966508~6489002203" />'
+          )
 
-          if 'com.google.android.gms.ads.APPLICATION_ID' not in text:
-              text = text[:end] + meta + text[end:]
+          if (
+              "com.google.android.gms.ads.APPLICATION_ID"
+              not in text
+          ):
+              text = (
+                  text[:end] +
+                  meta +
+                  text[end:]
+              )
 
           manifest.write_text(text)
 
-          variables = Path('android/variables.gradle')
+          variables = Path(
+              "android/variables.gradle"
+          )
+
           v = variables.read_text()
 
           v = re.sub(
-              r'minSdkVersion\s*=\s*\d+',
-              'minSdkVersion = 23',
+              r"minSdkVersion\s*=\s*\d+",
+              "minSdkVersion = 23",
               v
           )
 
           v = re.sub(
-              r'targetSdkVersion\s*=\s*\d+',
-              'targetSdkVersion = 36',
+              r"targetSdkVersion\s*=\s*\d+",
+              "targetSdkVersion = 36",
               v
           )
 
           variables.write_text(v)
 
-          gradle = Path('android/app/build.gradle')
+          gradle = Path(
+              "android/app/build.gradle"
+          )
+
           g = gradle.read_text()
 
           g = re.sub(
-              r'versionCode\s+\d+',
-              'versionCode 2',
+              r"versionCode\s+\d+",
+              "versionCode 3",
               g
           )
 
           g = re.sub(
               r'versionName\s+"[^"]*"',
-              'versionName "1.0.1"',
+              'versionName "1.0.2"',
               g
           )
 
           gradle.write_text(g)
           PY
+
+      - name: Verify configuration
+        script: |
+          grep -q 'versionCode 3' \
+            android/app/build.gradle
+
+          grep -q 'versionName "1.0.2"' \
+            android/app/build.gradle
+
+          grep -q \
+            'com.google.android.gms.ads.APPLICATION_ID' \
+            android/app/src/main/AndroidManifest.xml
+
+          test -f \
+            android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+
+          echo "VidioUp configuration OK"
+          echo "VersionCode: 3"
+          echo "VersionName: 1.0.2"
+          echo "Android icon generated"
 
       - name: Build AAB
         script: |
@@ -88,7 +200,9 @@ workflows:
       - name: Sign AAB
         script: |
           AAB="android/app/build/outputs/bundle/release/app-release.aab"
+
           test -f "$AAB"
+
           jarsigner \
             -keystore "$CM_KEYSTORE_PATH" \
             -storepass "$CM_KEYSTORE_PASSWORD" \
@@ -99,7 +213,12 @@ workflows:
       - name: Verify signed AAB
         script: |
           AAB="android/app/build/outputs/bundle/release/app-release.aab"
-          jarsigner -verify -verbose -certs "$AAB"
+
+          jarsigner \
+            -verify \
+            -verbose \
+            -certs \
+            "$AAB"
 
     artifacts:
       - android/app/build/outputs/**/*.aab
