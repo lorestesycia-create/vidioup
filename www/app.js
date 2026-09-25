@@ -519,4 +519,363 @@ async function ensureAdMob() {
     throw new Error(
       'Los anuncios solo están disponibles en la app Android.'
     );
- 
+  }
+
+  await AdMob.initialize();
+
+  let consent = await AdMob.requestConsentInfo();
+
+  if (
+    consent.isConsentFormAvailable &&
+    consent.status === AdmobConsentStatus.REQUIRED
+  ) {
+    consent = await AdMob.showConsentForm();
+  }
+
+  if (!consent.canRequestAds) {
+    throw new Error(
+      'Todavía no se pueden solicitar anuncios.'
+    );
+  }
+
+  admobReady = true;
+  return true;
+}
+
+async function showRewarded() {
+  if (!state.session?.user?.id) {
+    throw new Error('Inicia sesión de nuevo.');
+  }
+
+  await ensureAdMob();
+
+  await AdMob.prepareRewardVideoAd({
+    adId: cfg.services.rewarded_ad_unit_id,
+    isTesting: false,
+    ssv: {
+      userId: state.session.user.id
+    }
+  });
+
+  await AdMob.showRewardVideoAd();
+
+  toast('Recompensa enviada para verificación.');
+
+  for (const wait of [1500, 3000, 5000]) {
+    await new Promise(r => setTimeout(r, wait));
+
+    try {
+      await loadAccount();
+      render();
+      break;
+    } catch {}
+  }
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+document.addEventListener('submit', async e => {
+  if (e.target.id === 'signupForm') {
+    e.preventDefault();
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    const err = $('#authError');
+
+    const email = $('#email').value.trim();
+    const password = $('#password').value;
+    const passwordConfirm = $('#passwordConfirm').value;
+
+    err.textContent = '';
+
+    if (password.length < 6) {
+      err.textContent =
+        'La contraseña debe tener al menos 6 caracteres.';
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      err.textContent = 'Las contraseñas no coinciden.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Creando cuenta…';
+
+    try {
+      const result = await signUp(email, password);
+
+      if (result?.access_token && result?.user) {
+        saveSession(result);
+        await loadAppData();
+        render();
+        return;
+      }
+
+      state.authMode = 'login';
+      render();
+
+      const success = $('#authSuccess');
+
+      if (success) {
+        success.textContent =
+          'Cuenta creada. Revisa tu correo y confirma tu dirección. Después podrás iniciar sesión.';
+      }
+
+    } catch (x) {
+      err.textContent =
+        x.message === 'User already registered'
+          ? 'Ya existe una cuenta con ese correo.'
+          : (x.message || 'No se pudo crear la cuenta.');
+
+      btn.disabled = false;
+      btn.textContent = 'Crear cuenta';
+    }
+
+    return;
+  }
+
+  if (e.target.id !== 'loginForm') return;
+
+  e.preventDefault();
+
+  const btn = e.target.querySelector('button');
+  const err = $('#authError');
+
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  err.textContent = '';
+
+  try {
+    const s = await signIn(
+      $('#email').value.trim(),
+      $('#password').value
+    );
+
+    saveSession(s);
+    await loadAppData();
+    render();
+
+  } catch (x) {
+    saveSession(null);
+
+    err.textContent =
+      x.message === 'Invalid login credentials'
+        ? 'Correo o contraseña incorrectos.'
+        : x.message;
+
+    btn.disabled = false;
+    btn.textContent = 'Iniciar sesión';
+  }
+});
+
+document.addEventListener('click', async e => {
+  const tab = e.target.closest('[data-tab]')?.dataset.tab;
+
+  if (tab) {
+    state.tab = tab;
+    render();
+    return;
+  }
+
+  const target = e.target.closest('[data-action]');
+  const a = target?.dataset.action;
+
+  if (a === 'show-signup') {
+    state.authMode = 'signup';
+    render();
+    return;
+  }
+
+  if (a === 'show-login') {
+    state.authMode = 'login';
+    render();
+    return;
+  }
+
+  if (a === 'wallet') {
+    state.tab = 'monedas';
+    render();
+  }
+
+  if (a === 'go-promote') {
+    state.tab = 'promocionar';
+    render();
+  }
+
+  if (a === 'logout') {
+    saveSession(null);
+
+    state.authMode = 'login';
+
+    state.user = {
+      name: 'Creador',
+      email: '',
+      coins: 0,
+      reserved: 0
+    };
+
+    state.campaigns = [];
+    render();
+  }
+
+  if (a === 'rewarded') {
+    if (target) target.disabled = true;
+
+    try {
+      await showRewarded();
+    } catch (x) {
+      toast(x.message || 'No se pudo mostrar el anuncio.');
+    } finally {
+      if (target) target.disabled = false;
+    }
+  }
+
+  if (a === 'campaign-preview') {
+    const url = $('#url').value.trim();
+    const budget = Number($('#budget').value);
+    const mode = $('#mode').value;
+
+    if (
+      !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url)
+    ) {
+      toast('Introduce un enlace válido de YouTube.');
+      return;
+    }
+
+    if (
+      budget < cfg.economy.campaign_min_budget ||
+      budget > cfg.economy.campaign_max_budget
+    ) {
+      toast('Presupuesto fuera de los límites.');
+      return;
+    }
+
+    $('#preview').innerHTML = `
+      <div class="review">
+        <b>Resumen</b>
+        <p>${esc(url)}</p>
+        <p>
+          ${esc(cfg.campaign_modes[mode])}
+          · ${money(budget)} monedas
+        </p>
+        <button class="btn" data-action="save-draft">
+          Guardar campaña
+        </button>
+      </div>`;
+
+    return;
+  }
+
+  if (a === 'save-draft') {
+    const url = $('#url').value.trim();
+    const budget = Number($('#budget').value);
+    const mode = $('#mode').value;
+    const category = $('#cat').value;
+
+    if (target) target.disabled = true;
+
+    try {
+      await rpc('create_campaign', {
+        p_youtube_url: url,
+        p_category: category,
+        p_mode: mode,
+        p_budget: budget
+      });
+
+      await loadAppData();
+
+      toast('Campaña creada correctamente.');
+      state.tab = 'campanas';
+      render();
+
+    } catch (x) {
+      toast(x.message || 'No se pudo crear la campaña.');
+    } finally {
+      if (target) target.disabled = false;
+    }
+
+    return;
+  }
+
+  if (
+    a === 'pause-campaign' ||
+    a === 'resume-campaign' ||
+    a === 'cancel-campaign'
+  ) {
+    const id = target?.dataset.campaignId;
+
+    if (!id) return;
+
+    const fn = {
+      'pause-campaign': 'pause_campaign',
+      'resume-campaign': 'resume_campaign',
+      'cancel-campaign': 'cancel_campaign'
+    }[a];
+
+    if (target) target.disabled = true;
+
+    try {
+      await rpc(fn, {
+        p_campaign_id: id
+      });
+
+      await loadAppData();
+
+      toast('Campaña actualizada.');
+      render();
+
+    } catch (x) {
+      toast(x.message || 'No se pudo actualizar la campaña.');
+    } finally {
+      if (target) target.disabled = false;
+    }
+
+    return;
+  }
+
+  if (e.target.closest('[data-sku]')) {
+    toast('Las compras se activarán antes de publicar.');
+  }
+});
+
+async function boot() {
+  try {
+    cfg = await fetch('config.json').then(r => r.json());
+
+    const raw = localStorage.getItem('vidioup_session');
+
+    if (raw) {
+      try {
+        let s = JSON.parse(raw);
+
+        if (s.refresh_token) {
+          try {
+            s = await refreshSession(s.refresh_token);
+            saveSession(s);
+          } catch {
+            saveSession(null);
+          }
+        }
+
+        if (state.session) {
+          await loadAppData();
+        }
+
+      } catch {
+        saveSession(null);
+      }
+    }
+
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+boot();
