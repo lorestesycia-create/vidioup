@@ -10,7 +10,8 @@ const state = {
   user: { name: 'Creador', email: '', coins: 0, reserved: 0 },
   favorites: [],
   campaigns: [],
-  loading: true
+  loading: true,
+  authMode: 'login'
 };
 
 function esc(s = '') {
@@ -35,26 +36,47 @@ function apiHeaders(token) {
 async function sb(path, opts = {}) {
   const r = await fetch(`${cfg.services.supabase_url}${path}`, opts);
   let data = null;
-  try { data = await r.json(); } catch {}
+
+  try {
+    data = await r.json();
+  } catch {}
+
   if (!r.ok) {
     throw new Error(
       data?.msg ||
       data?.message ||
       data?.error_description ||
+      data?.error ||
       `Error ${r.status}`
     );
   }
+
   return data;
 }
 
 function saveSession(s) {
   state.session = s;
-  if (s) localStorage.setItem('vidioup_session', JSON.stringify(s));
-  else localStorage.removeItem('vidioup_session');
+
+  if (s) {
+    localStorage.setItem('vidioup_session', JSON.stringify(s));
+  } else {
+    localStorage.removeItem('vidioup_session');
+  }
 }
 
 async function signIn(email, password) {
   return sb('/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: {
+      'apikey': cfg.services.supabase_publishable_key,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email, password })
+  });
+}
+
+async function signUp(email, password) {
+  return sb('/auth/v1/signup', {
     method: 'POST',
     headers: {
       'apikey': cfg.services.supabase_publishable_key,
@@ -127,25 +149,68 @@ async function loadAppData() {
   ]);
 }
 
-function loginView() {
+function authView() {
+  const signup = state.authMode === 'signup';
+
   return `
     <div class="auth">
       <div class="authbox">
         <img src="icon.png" class="authicon">
         <h1>VidioUp</h1>
-        <p>Inicia sesión para continuar</p>
 
-        <form id="loginForm">
+        <p>
+          ${signup
+            ? 'Crea tu cuenta para continuar'
+            : 'Inicia sesión para continuar'}
+        </p>
+
+        <form id="${signup ? 'signupForm' : 'loginForm'}">
           <label>Correo electrónico</label>
-          <input id="email" type="email" autocomplete="email" required>
+          <input
+            id="email"
+            type="email"
+            autocomplete="email"
+            required
+          >
 
           <label>Contraseña</label>
-          <input id="password" type="password" autocomplete="current-password" required>
+          <input
+            id="password"
+            type="password"
+            minlength="6"
+            autocomplete="${signup ? 'new-password' : 'current-password'}"
+            required
+          >
 
-          <button class="btn wide" type="submit">Iniciar sesión</button>
+          ${signup ? `
+            <label>Repite la contraseña</label>
+            <input
+              id="passwordConfirm"
+              type="password"
+              minlength="6"
+              autocomplete="new-password"
+              required
+            >
+          ` : ''}
+
+          <button class="btn wide" type="submit">
+            ${signup ? 'Crear cuenta' : 'Iniciar sesión'}
+          </button>
         </form>
 
         <p id="authError" class="error"></p>
+        <p id="authSuccess" class="notice"></p>
+
+        <button
+          class="ghost wide"
+          type="button"
+          data-action="${signup ? 'show-login' : 'show-signup'}"
+        >
+          ${signup
+            ? 'Ya tengo cuenta · Iniciar sesión'
+            : 'Crear una cuenta'}
+        </button>
+
         <p class="notice">
           Tus campañas, monedas y actividad quedan vinculadas a tu cuenta.
         </p>
@@ -183,7 +248,7 @@ function render() {
   }
 
   if (!state.session) {
-    $('#app').innerHTML = loginView();
+    $('#app').innerHTML = authView();
     document.querySelector('nav').hidden = true;
     return;
   }
@@ -454,290 +519,4 @@ async function ensureAdMob() {
     throw new Error(
       'Los anuncios solo están disponibles en la app Android.'
     );
-  }
-
-  await AdMob.initialize();
-
-  let consent = await AdMob.requestConsentInfo();
-
-  if (
-    consent.isConsentFormAvailable &&
-    consent.status === AdmobConsentStatus.REQUIRED
-  ) {
-    consent = await AdMob.showConsentForm();
-  }
-
-  if (!consent.canRequestAds) {
-    throw new Error(
-      'Todavía no se pueden solicitar anuncios.'
-    );
-  }
-
-  admobReady = true;
-  return true;
-}
-
-async function showRewarded() {
-  if (!state.session?.user?.id) {
-    throw new Error('Inicia sesión de nuevo.');
-  }
-
-  await ensureAdMob();
-
-  await AdMob.prepareRewardVideoAd({
-    adId: cfg.services.rewarded_ad_unit_id,
-    isTesting: false,
-    ssv: {
-      userId: state.session.user.id
-    }
-  });
-
-  await AdMob.showRewardVideoAd();
-
-  toast('Recompensa enviada para verificación.');
-
-  for (const wait of [1500, 3000, 5000]) {
-    await new Promise(r => setTimeout(r, wait));
-
-    try {
-      await loadAccount();
-      render();
-      break;
-    } catch {}
-  }
-}
-
-function toast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2600);
-}
-
-document.addEventListener('submit', async e => {
-  if (e.target.id !== 'loginForm') return;
-
-  e.preventDefault();
-
-  const btn = e.target.querySelector('button');
-  const err = $('#authError');
-
-  btn.disabled = true;
-  btn.textContent = 'Entrando…';
-  err.textContent = '';
-
-  try {
-    const s = await signIn(
-      $('#email').value.trim(),
-      $('#password').value
-    );
-
-    saveSession(s);
-    await loadAppData();
-    render();
-
-  } catch (x) {
-    saveSession(null);
-
-    err.textContent =
-      x.message === 'Invalid login credentials'
-        ? 'Correo o contraseña incorrectos.'
-        : x.message;
-
-    btn.disabled = false;
-    btn.textContent = 'Iniciar sesión';
-  }
-});
-
-document.addEventListener('click', async e => {
-  const tab = e.target.closest('[data-tab]')?.dataset.tab;
-
-  if (tab) {
-    state.tab = tab;
-    render();
-    return;
-  }
-
-  const target = e.target.closest('[data-action]');
-  const a = target?.dataset.action;
-
-  if (a === 'wallet') {
-    state.tab = 'monedas';
-    render();
-  }
-
-  if (a === 'go-promote') {
-    state.tab = 'promocionar';
-    render();
-  }
-
-  if (a === 'logout') {
-    saveSession(null);
-
-    state.user = {
-      name: 'Creador',
-      email: '',
-      coins: 0,
-      reserved: 0
-    };
-
-    state.campaigns = [];
-    render();
-  }
-
-  if (a === 'rewarded') {
-    if (target) target.disabled = true;
-
-    try {
-      await showRewarded();
-    } catch (x) {
-      toast(x.message || 'No se pudo mostrar el anuncio.');
-    } finally {
-      if (target) target.disabled = false;
-    }
-  }
-
-  if (a === 'campaign-preview') {
-    const url = $('#url').value.trim();
-    const budget = Number($('#budget').value);
-    const mode = $('#mode').value;
-
-    if (
-      !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url)
-    ) {
-      toast('Introduce un enlace válido de YouTube.');
-      return;
-    }
-
-    if (
-      budget < cfg.economy.campaign_min_budget ||
-      budget > cfg.economy.campaign_max_budget
-    ) {
-      toast('Presupuesto fuera de los límites.');
-      return;
-    }
-
-    $('#preview').innerHTML = `
-      <div class="review">
-        <b>Resumen</b>
-        <p>${esc(url)}</p>
-        <p>
-          ${esc(cfg.campaign_modes[mode])}
-          · ${money(budget)} monedas
-        </p>
-        <button class="btn" data-action="save-draft">
-          Guardar campaña
-        </button>
-      </div>`;
-
-    return;
-  }
-
-  if (a === 'save-draft') {
-    const url = $('#url').value.trim();
-    const budget = Number($('#budget').value);
-    const mode = $('#mode').value;
-    const category = $('#cat').value;
-
-    if (target) target.disabled = true;
-
-    try {
-      await rpc('create_campaign', {
-        p_youtube_url: url,
-        p_category: category,
-        p_mode: mode,
-        p_budget: budget
-      });
-
-      await loadAppData();
-
-      toast('Campaña creada correctamente.');
-      state.tab = 'campanas';
-      render();
-
-    } catch (x) {
-      toast(x.message || 'No se pudo crear la campaña.');
-    } finally {
-      if (target) target.disabled = false;
-    }
-
-    return;
-  }
-
-  if (
-    a === 'pause-campaign' ||
-    a === 'resume-campaign' ||
-    a === 'cancel-campaign'
-  ) {
-    const id = target?.dataset.campaignId;
-
-    if (!id) return;
-
-    const fn = {
-      'pause-campaign': 'pause_campaign',
-      'resume-campaign': 'resume_campaign',
-      'cancel-campaign': 'cancel_campaign'
-    }[a];
-
-    if (target) target.disabled = true;
-
-    try {
-      await rpc(fn, {
-        p_campaign_id: id
-      });
-
-      await loadAppData();
-
-      toast('Campaña actualizada.');
-      render();
-
-    } catch (x) {
-      toast(x.message || 'No se pudo actualizar la campaña.');
-    } finally {
-      if (target) target.disabled = false;
-    }
-
-    return;
-  }
-
-  if (e.target.closest('[data-sku]')) {
-    toast('Las compras se activarán antes de publicar.');
-  }
-});
-
-async function boot() {
-  try {
-    cfg = await fetch('config.json').then(r => r.json());
-
-    const raw = localStorage.getItem('vidioup_session');
-
-    if (raw) {
-      try {
-        let s = JSON.parse(raw);
-
-        if (s.refresh_token) {
-          try {
-            s = await refreshSession(s.refresh_token);
-            saveSession(s);
-          } catch {
-            saveSession(null);
-          }
-        }
-
-        if (state.session) {
-          await loadAppData();
-        }
-
-      } catch {
-        saveSession(null);
-      }
-    }
-
-  } finally {
-    state.loading = false;
-    render();
-  }
-}
-
-boot();
+ 
