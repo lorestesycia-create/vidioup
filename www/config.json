@@ -41,13 +41,13 @@
   "services": {
     "admob_app_id": "ca-app-pub-8854680295966508~6489002203",
     "rewarded_ad_unit_id": "ca-app-pub-8854680295966508/7360239906",
-    "supabase_url": "https://mxpppwntineyndpghnlli.supabase.co",
+    "supabase_url": "https://mxppwntineyndpqhnlli.supabase.co",
     "supabase_publishable_key": "sb_publishable_UgUN-Sv0b9M6rUa-jtCyvw_zmPyedan"
   },
   "app": {
     "name": "VidioUp",
     "package": "com.vidioup.app",
-    "versionName": "1.0",
-    "versionCode": 1
+    "versionName": "1.0.1",
+    "versionCode": 2
   }
 }
