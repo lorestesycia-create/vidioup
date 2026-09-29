@@ -1,0 +1,40 @@
+/* Immersive short-video feed: one vertical video per screen. */
+.short-item .player-shell{position:relative}
+.short-item .short-play-surface{position:absolute;inset:0;z-index:2;border:0;background:transparent;color:#fff;padding:0;touch-action:pan-y}
+.short-item .short-play-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.46);font-size:28px;line-height:1;opacity:.92;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
+.short-item.is-playing .short-play-hint{opacity:0}
+.short-item .short-play-hint.visible{opacity:.92!important;transform:translate(-50%,-50%) scale(1.04)}
+.short-item .short-shade{position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,.14) 0%,transparent 38%,transparent 58%,rgba(0,0,0,.72) 100%)}
+.short-item .short-overlay{position:absolute;left:14px;right:12px;bottom:16px;z-index:4;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;pointer-events:none}
+.short-item .short-info-panel{min-width:0;flex:1;padding-right:4px;pointer-events:auto;text-shadow:0 1px 4px rgba(0,0,0,.65)}
+.short-item .short-creator-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.short-item .short-creator-row .creator-link{max-width:calc(100% - 92px)}
+.short-item .short-creator-row .creator-link>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.short-item .short-creator-row .follow-btn{padding:7px 12px}
+.short-item .short-title{margin:10px 0 2px;font-size:16px;line-height:1.3;color:#fff;max-width:100%;-webkit-line-clamp:2}
+.short-item .short-actions{display:flex;flex-direction:column;gap:15px;align-items:center;pointer-events:auto}
+.short-item .short-action{width:58px;border:0;background:transparent;color:#fff;padding:0;display:flex;flex-direction:column;align-items:center;gap:3px;text-shadow:0 1px 5px rgba(0,0,0,.8)}
+.short-item .short-action>span{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgba(20,20,24,.54);backdrop-filter:blur(5px);font-size:27px;font-weight:700}
+.short-item .short-action small{font-size:10px;font-weight:750;color:#fff}
+.short-item .short-promoted{position:absolute;left:14px;top:70px;z-index:5;margin:0;background:rgba(28,25,44,.74);backdrop-filter:blur(5px)}
+.short-item .short-more-menu{z-index:12;right:76px;bottom:74px}
+
+body:has(.immersive-short-feed){padding-bottom:0;overflow:hidden;background:#000}
+body:has(.immersive-short-feed) .top{display:none}
+body:has(.immersive-short-feed) main{max-width:none!important;height:calc(100svh - 66px);overflow:hidden;margin:0}
+body:has(.immersive-short-feed) .feed-head{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;transform:translateX(-50%);z-index:30;width:max-content;padding:0;background:none}
+body:has(.immersive-short-feed) .mode-switch{background:rgba(10,10,14,.48);border-color:rgba(255,255,255,.22);backdrop-filter:blur(10px);box-shadow:0 3px 14px rgba(0,0,0,.24)}
+body:has(.immersive-short-feed) .mode-switch button{color:rgba(255,255,255,.78)}
+body:has(.immersive-short-feed) .mode-switch button.active{background:rgba(255,255,255,.94);color:#11131a}
+
+.immersive-short-feed{height:calc(100svh - 66px);overflow-y:auto;overflow-x:hidden;padding:0;background:#000;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+.immersive-short-feed::-webkit-scrollbar{display:none}
+.immersive-short-feed .short-item{height:calc(100svh - 66px);min-height:calc(100svh - 66px);width:100%;margin:0;padding:0;border:0;border-radius:0;background:#000;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always}
+.immersive-short-feed .short-item .player-shell.vertical{width:100%;height:100%;max-height:none;aspect-ratio:auto;margin:0;border-radius:0;background:#000}
+.immersive-short-feed .short-item .player-shell iframe,.immersive-short-feed .short-item .player-shell img{width:100%;height:100%;object-fit:cover;border-radius:0;pointer-events:none}
+.immersive-short-feed .short-item .video-placeholder{height:100%;width:100%;display:grid;place-items:center}
+
+@media (min-width:720px){
+  body:has(.immersive-short-feed) main{max-width:520px!important;margin:0 auto;background:#000}
+  .immersive-short-feed{max-width:520px;margin:0 auto}
+}

@@ -26,7 +26,7 @@ workflows:
             --format=iife \
             --outfile=www-final/app.js
 
-          cp www/index.html www/style.css www/icon.png www-final/
+          cp www/index.html www/style.css www/shorts.css www/icon.png www-final/
 
           python3 - <<'PY'
           import json
@@ -37,8 +37,8 @@ workflows:
 
           data = json.loads(source.read_text())
 
-          data["app"]["versionName"] = "1.0.3"
-          data["app"]["versionCode"] = 4
+          data["app"]["versionName"] = "1.0.4"
+          data["app"]["versionCode"] = 5
 
           target.write_text(
               json.dumps(
@@ -159,13 +159,13 @@ workflows:
 
           g = re.sub(
               r"versionCode\s+\d+",
-              "versionCode 4",
+              "versionCode 5",
               g
           )
 
           g = re.sub(
               r'versionName\s+"[^"]*"',
-              'versionName "1.0.3"',
+              'versionName "1.0.4"',
               g
           )
 
@@ -174,10 +174,10 @@ workflows:
 
       - name: Verify configuration
         script: |
-          grep -q 'versionCode 4' \
+          grep -q 'versionCode 5' \
             android/app/build.gradle
 
-          grep -q 'versionName "1.0.3"' \
+          grep -q 'versionName "1.0.4"' \
             android/app/build.gradle
 
           grep -q \
@@ -188,8 +188,8 @@ workflows:
             android/app/src/main/res/mipmap-mdpi/ic_launcher.png
 
           echo "VidioUp configuration OK"
-          echo "VersionCode: 4"
-          echo "VersionName: 1.0.3"
+          echo "VersionCode: 5"
+          echo "VersionName: 1.0.4"
           echo "Android icon generated"
 
       - name: Build AAB

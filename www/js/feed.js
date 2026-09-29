@@ -3,7 +3,7 @@ import { esc } from './utils.js';
 
 function youtubeEmbed(videoId){
   if(!videoId) return '';
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0&modestbranding=1`;
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
 }
 
 export function modeSwitch(){
@@ -15,16 +15,72 @@ export function modeSwitch(){
   `;
 }
 
-export function videoCard(v,{followingOnly=false}={}){
-  const short=state.contentMode==='short';
+function shortCard(v,{followingOnly=false}={}){
   const title=v.video_title||'Vídeo de VidioUp';
   const creator=v.creator_name||'Creador';
   const embed=youtubeEmbed(v.youtube_video_id);
 
   return `
-    <article class="feed-item ${short?'short-item':'long-item'} ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>
+    <article class="feed-item short-item ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>
+      <div class="player-shell vertical">
+        ${embed
+          ? `<iframe src="${esc(embed)}" title="${esc(title)}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+          : v.thumbnail_url
+            ? `<img src="${esc(v.thumbnail_url)}" alt="Miniatura del vídeo" loading="lazy">`
+            : `<div class="video-placeholder">▶</div>`
+        }
+
+        ${embed?`<button class="short-play-surface" data-action="short-toggle-play" aria-label="Reproducir o pausar corto"><span class="short-play-hint">▶</span></button>`:''}
+        <div class="short-shade" aria-hidden="true"></div>
+        ${v.is_promoted?`<span class="promoted-label short-promoted">Promocionado</span>`:''}
+
+        <div class="short-overlay">
+          <div class="short-info-panel">
+            <div class="short-creator-row">
+              <button class="creator-link" data-action="open-creator" data-creator-id="${esc(v.creator_id)}">
+                <span class="mini-avatar">${esc((creator[0]||'C').toUpperCase())}</span>
+                <span>${esc(creator)}</span>
+              </button>
+
+              ${followingOnly||v.is_following
+                ? `<button class="follow-btn following" data-action="toggle-follow" data-creator-id="${esc(v.creator_id)}" data-following="1" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Siguiendo</button>`
+                : `<button class="follow-btn" data-action="toggle-follow" data-creator-id="${esc(v.creator_id)}" data-following="0" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Seguir</button>`
+              }
+            </div>
+            <h2 class="feed-title short-title">${esc(title)}</h2>
+          </div>
+
+          <div class="short-actions">
+            <button class="short-action" data-action="toggle-favorite" data-video-id="${esc(v.video_id)}" aria-label="${v.is_favorite?'Quitar de guardados':'Guardar'}">
+              <span>${v.is_favorite?'★':'☆'}</span><small>${v.is_favorite?'Guardado':'Guardar'}</small>
+            </button>
+            <button class="short-action" data-action="share-video" data-youtube-url="${esc(v.youtube_url)}" aria-label="Compartir">
+              <span>↗</span><small>Compartir</small>
+            </button>
+            <button class="short-action" data-action="feed-more" data-video-id="${esc(v.video_id)}" aria-expanded="false" aria-label="Más opciones">
+              <span>⋮</span><small>Más</small>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="feed-more-menu short-more-menu" data-more-menu="${esc(v.video_id)}" hidden>
+        <button data-action="not-interested" data-video-id="${esc(v.video_id)}">No me interesa</button>
+        <button data-action="report-video" data-video-id="${esc(v.video_id)}">Denunciar</button>
+      </div>
+    </article>
+  `;
+}
+
+function longCard(v,{followingOnly=false}={}){
+  const title=v.video_title||'Vídeo de VidioUp';
+  const creator=v.creator_name||'Creador';
+  const embed=youtubeEmbed(v.youtube_video_id);
+
+  return `
+    <article class="feed-item long-item ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>
       ${v.is_promoted?`<span class="promoted-label">Promocionado</span>`:''}
-      <div class="player-shell ${short?'vertical':'horizontal'}">
+      <div class="player-shell horizontal">
         ${embed
           ? `<iframe src="${esc(embed)}" title="${esc(title)}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
           : v.thumbnail_url
@@ -52,7 +108,7 @@ export function videoCard(v,{followingOnly=false}={}){
           ${v.is_favorite?'★ Guardado':'☆ Guardar'}
         </button>
         <button class="ghost compact" data-action="share-video" data-youtube-url="${esc(v.youtube_url)}">Compartir</button>
-        ${short?'':`<button class="ghost compact" data-action="open-youtube" data-youtube-url="${esc(v.youtube_url)}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Ver en YouTube</button>`}
+        <button class="ghost compact" data-action="open-youtube" data-youtube-url="${esc(v.youtube_url)}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Ver en YouTube</button>
         <button class="ghost compact more" data-action="feed-more" data-video-id="${esc(v.video_id)}" aria-expanded="false">⋮</button>
       </div>
 
@@ -62,6 +118,12 @@ export function videoCard(v,{followingOnly=false}={}){
       </div>
     </article>
   `;
+}
+
+export function videoCard(v,options={}){
+  return state.contentMode==='short'
+    ? shortCard(v,options)
+    : longCard(v,options);
 }
 
 function mixedHomeRows(){
@@ -89,14 +151,15 @@ function mixedHomeRows(){
 
 export function home(){
   const rows=mixedHomeRows();
+  const short=state.contentMode==='short';
   const content=rows.length
     ? rows.map(v=>videoCard(v)).join('')
     : `
       <section class="empty-state">
-        <b>${state.contentMode==='short'?'Todavía no hay Cortos':'Todavía no hay vídeos'}</b>
+        <b>${short?'Todavía no hay Cortos':'Todavía no hay vídeos'}</b>
         <p>En cuanto haya contenido disponible aparecerá aquí.</p>
-        <button class="ghost" data-action="content-mode" data-mode="${state.contentMode==='short'?'video':'short'}">
-          ${state.contentMode==='short'?'Ver vídeos':'Ver Cortos'}
+        <button class="ghost" data-action="content-mode" data-mode="${short?'video':'short'}">
+          ${short?'Ver vídeos':'Ver Cortos'}
         </button>
       </section>
     `;
@@ -105,7 +168,7 @@ export function home(){
     <div class="feed-head">
       ${modeSwitch()}
     </div>
-    <div class="feed-stream ${state.contentMode==='short'?'snap-feed':''}">
+    <div class="feed-stream ${short?'snap-feed immersive-short-feed':''}">
       ${content}
     </div>
   `;
