@@ -37,8 +37,8 @@ workflows:
 
           data = json.loads(source.read_text())
 
-          data["app"]["versionName"] = "1.0.4"
-          data["app"]["versionCode"] = 5
+          data["app"]["versionName"] = "1.0.5"
+          data["app"]["versionCode"] = 6
 
           target.write_text(
               json.dumps(
@@ -159,13 +159,13 @@ workflows:
 
           g = re.sub(
               r"versionCode\s+\d+",
-              "versionCode 5",
+              "versionCode 6",
               g
           )
 
           g = re.sub(
               r'versionName\s+"[^"]*"',
-              'versionName "1.0.4"',
+              'versionName "1.0.5"',
               g
           )
 
@@ -174,10 +174,10 @@ workflows:
 
       - name: Verify configuration
         script: |
-          grep -q 'versionCode 5' \
+          grep -q 'versionCode 6' \
             android/app/build.gradle
 
-          grep -q 'versionName "1.0.4"' \
+          grep -q 'versionName "1.0.5"' \
             android/app/build.gradle
 
           grep -q \
@@ -188,8 +188,8 @@ workflows:
             android/app/src/main/res/mipmap-mdpi/ic_launcher.png
 
           echo "VidioUp configuration OK"
-          echo "VersionCode: 5"
-          echo "VersionName: 1.0.4"
+          echo "VersionCode: 6"
+          echo "VersionName: 1.0.5"
           echo "Android icon generated"
 
       - name: Build AAB

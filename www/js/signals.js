@@ -1,4 +1,4 @@
-import { state } from './context.js';
+import { state, getGuestId } from './context.js';
 import { rpc } from './supabase.js';
 
 let observer=null;
@@ -60,21 +60,24 @@ function stopSession(el){
   if(seconds<0.6) return;
 
   const videoId=el.dataset.videoId;
-  if(!videoId||!state.session) return;
+  if(!videoId) return;
 
   const visibleSeconds=Number(seconds.toFixed(1));
 
-  rpc('record_video_signal',{
-    p_video_id:videoId,
-    p_visible_seconds:visibleSeconds,
-    p_quick_swipe:seconds<2.5
-  }).catch(()=>{});
+  if(state.session){
+    rpc('record_video_signal',{
+      p_video_id:videoId,
+      p_visible_seconds:visibleSeconds,
+      p_quick_swipe:seconds<2.5
+    }).catch(()=>{});
+  }
 
   const campaignId=el.dataset.campaignId;
   if(campaignId){
-    rpc('record_campaign_exposure',{
+    rpc('record_campaign_exposure_v2',{
       p_campaign_id:campaignId,
-      p_visible_seconds:visibleSeconds
+      p_visible_seconds:visibleSeconds,
+      p_guest_id:getGuestId()
     }).catch(()=>{});
   }
 }
@@ -97,7 +100,7 @@ export function stopFeedTracking({record=false}={}){
 export function initFeedTracking(){
   stopFeedTracking();
 
-  if(!state.session||!('IntersectionObserver' in window)) return;
+  if(!('IntersectionObserver' in window)) return;
 
   const items=[...document.querySelectorAll('.feed-item[data-video-id]')];
   if(!items.length) return;

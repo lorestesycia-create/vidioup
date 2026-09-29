@@ -1,4 +1,4 @@
-import { cfg, state } from './context.js';
+import { cfg, state, getGuestId } from './context.js';
 import { sb, headers, rpc } from './supabase.js';
 
 export async function loadAccount(){
@@ -34,9 +34,10 @@ export async function loadCampaigns(){
 }
 
 export async function loadPromotedFeed(kind=state.contentMode){
-  const rows=await rpc('get_promoted_feed',{
+  const rows=await rpc('get_promoted_feed_v2',{
     p_content_kind:kind,
-    p_limit:12
+    p_limit:12,
+    p_guest_id:getGuestId()
   });
   state.promotedFeed=Array.isArray(rows)?rows:[];
 }
@@ -117,6 +118,12 @@ export async function loadRewardStatus(){
     remaining_today:Number(s?.remaining_today??cfg.economy.rewarded_daily_limit)
   };
 }
+
+export const loadPublicData=()=>
+  Promise.all([
+    loadPromotedFeed(),
+    loadOrganicFeed()
+  ]);
 
 export const loadAppData=()=>
   Promise.all([

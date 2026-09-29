@@ -1,6 +1,6 @@
 import { state, setCfg } from './js/context.js';
 import { refreshSession, saveSession } from './js/auth.js';
-import { loadAppData } from './js/data.js';
+import { loadAppData, loadPublicData } from './js/data.js';
 import { render } from './js/ui.js';
 import './js/auth-events.js';
 import './js/events.js';
@@ -25,13 +25,15 @@ async function boot(){
             saveSession(null);
           }
         }
-
-        if(state.session){
-          await loadAppData();
-        }
       }catch{
         saveSession(null);
       }
+    }
+
+    if(state.session){
+      await loadAppData();
+    }else{
+      await loadPublicData();
     }
   }finally{
     state.loading=false;

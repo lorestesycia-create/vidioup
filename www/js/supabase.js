@@ -1,10 +1,17 @@
 import { cfg, state } from './context.js';
 import { sleep } from './utils.js';
-export const headers = token => ({
-  apikey: cfg.services.supabase_publishable_key,
-  Authorization: `Bearer ${token}`,
-  'Content-Type':'application/json'
-});
+export const headers = token => {
+  const h={
+    apikey:cfg.services.supabase_publishable_key,
+    'Content-Type':'application/json'
+  };
+
+  if(token){
+    h.Authorization=`Bearer ${token}`;
+  }
+
+  return h;
+};
 
 export async function sb(path, opts={}, attempt=0){
   const r = await fetch(`${cfg.services.supabase_url}${path}`, opts);
@@ -42,14 +49,14 @@ export async function sb(path, opts={}, attempt=0){
 export const rpc=(name,body={})=>
   sb(`/rest/v1/rpc/${name}`,{
     method:'POST',
-    headers:headers(state.session.access_token),
+    headers:headers(state.session?.access_token),
     body:JSON.stringify(body)
   });
 
 export async function edge(name,body={}){
   const r=await fetch(`${cfg.services.supabase_url}/functions/v1/${name}`,{
     method:'POST',
-    headers:headers(state.session.access_token),
+    headers:headers(state.session?.access_token),
     body:JSON.stringify(body)
   });
 

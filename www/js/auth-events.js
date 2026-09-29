@@ -54,6 +54,8 @@ document.addEventListener(
         ){
           saveSession(s);
           await loadAppData();
+          state.tab=state.authReturnTab||'inicio';
+          state.authReturnTab='inicio';
           render();
           return;
         }
@@ -104,6 +106,8 @@ document.addEventListener(
 
       saveSession(s);
       await loadAppData();
+      state.tab=state.authReturnTab||'inicio';
+      state.authReturnTab='inicio';
       render();
 
     }catch(x){

@@ -32,6 +32,7 @@ function authView(){
       <p id="authError" class="error"></p>
       <p id="authSuccess" class="notice"></p>
       <button class="ghost wide" type="button" data-action="${signup?'show-login':'show-signup'}">${signup?'Ya tengo cuenta · Iniciar sesión':'Crear una cuenta'}</button>
+      <button class="ghost wide" type="button" data-action="guest-back">Seguir viendo sin cuenta</button>
     </div></div>
   `;
 }
@@ -51,7 +52,7 @@ export function render(){
     return;
   }
 
-  if(!state.session){
+  if(state.tab==='auth'){
     $('#app').innerHTML=authView();
     document.querySelector('nav').hidden=true;
     return;

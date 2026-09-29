@@ -1,11 +1,30 @@
-import { cfg, state } from './context.js';
+import { cfg, state, getGuestId } from './context.js';
 import { $, esc, money } from './utils.js';
 import { saveSession } from './auth.js';
 import { rpc, edge } from './supabase.js';
-import { loadAppData, loadPromotedFeed, loadOrganicFeed, loadFollowingFeed, loadFollowing, loadCreator, loadAccount, loadRewardStatus, loadInterests, loadSavedVideos, loadBlockedUsers, loadMyChannel } from './data.js';
+import { loadAppData, loadPublicData, loadPromotedFeed, loadOrganicFeed, loadFollowingFeed, loadFollowing, loadCreator, loadAccount, loadRewardStatus, loadInterests, loadSavedVideos, loadBlockedUsers, loadMyChannel } from './data.js';
 import { render, toast } from './ui.js';
 import { showRewarded } from './ads.js';
 import { stopFeedTracking } from './signals.js';
+
+const AUTH_ONLY_TABS=new Set(['siguiendo','perfil']);
+const AUTH_ONLY_ACTIONS=new Set([
+  'wallet','go-promote','creator-studio','settings','go-campaigns',
+  'studio-channel','view-my-public-profile','youtube-link-channel',
+  'youtube-sync-channel','youtube-import-video','youtube-toggle-hidden',
+  'youtube-change-kind','youtube-unlink','toggle-follow','block-creator',
+  'not-interested','report-video','my-following','saved','interests',
+  'toggle-interest','save-interests','account-security','blocked-users',
+  'unblock-user','rewarded','toggle-favorite','campaign-preview','save-draft',
+  'pause-campaign','resume-campaign','cancel-campaign'
+]);
+
+function showAuthGate(returnTab='inicio'){
+  state.authReturnTab=returnTab&&returnTab!=='auth'?returnTab:'inicio';
+  state.authMode='login';
+  state.tab='auth';
+  render();
+}
 
 async function refreshTab(tab){
   if(tab==='inicio'){
@@ -45,6 +64,12 @@ document.addEventListener(
 
     if(tab){
       stopFeedTracking({record:true});
+
+      if(!state.session&&AUTH_ONLY_TABS.has(tab)){
+        showAuthGate(tab);
+        return;
+      }
+
       state.tab=tab;
 
       try{
@@ -61,6 +86,12 @@ document.addEventListener(
     const a=
       target?.dataset.action;
 
+    if(!state.session&&AUTH_ONLY_ACTIONS.has(a)){
+      stopFeedTracking({record:true});
+      showAuthGate(state.tab);
+      return;
+    }
+
     if(a==='show-signup'){
       state.authMode='signup';
       render();
@@ -69,6 +100,13 @@ document.addEventListener(
 
     if(a==='show-login'){
       state.authMode='login';
+      render();
+      return;
+    }
+
+    if(a==='guest-back'){
+      state.tab='inicio';
+      state.authReturnTab='inicio';
       render();
       return;
     }
@@ -125,6 +163,13 @@ document.addEventListener(
           cfg?.economy?.rewarded_daily_limit||8
       };
 
+      state.tab='inicio';
+      state.authReturnTab='inicio';
+
+      try{
+        await loadPublicData();
+      }catch{}
+
       render();
       return;
     }
@@ -156,8 +201,8 @@ document.addEventListener(
         await Promise.all([
           loadOrganicFeed(mode),
           loadPromotedFeed(mode),
-          loadFollowingFeed(mode),
-          state.tab==='saved'?loadSavedVideos(mode):Promise.resolve()
+          state.session?loadFollowingFeed(mode):Promise.resolve(),
+          state.session&&state.tab==='saved'?loadSavedVideos(mode):Promise.resolve()
         ]);
       }catch(x){
         toast(x.message||'No se pudo cargar el contenido.');
@@ -653,10 +698,11 @@ document.addEventListener(
       const campaignId=target.dataset.campaignId||null;
       if(campaignId){
         rpc(
-          'record_outbound_click',
+          'record_outbound_click_v2',
           {
             p_campaign_id:campaignId,
-            p_video_id:target.dataset.videoId
+            p_video_id:target.dataset.videoId,
+            p_guest_id:getGuestId()
           }
         ).catch(()=>{});
       }

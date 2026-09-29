@@ -1,6 +1,19 @@
 export let cfg;
 export const setCfg = value => { cfg = value; };
 
+const GUEST_ID_KEY='vidioup_guest_id';
+
+export function getGuestId(){
+  let id=localStorage.getItem(GUEST_ID_KEY);
+  if(id&&/^[A-Za-z0-9._-]{16,128}$/.test(id)) return id;
+
+  id=globalThis.crypto?.randomUUID?.()
+    || `guest-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+
+  localStorage.setItem(GUEST_ID_KEY,id);
+  return id;
+}
+
 export const state = {
   tab: 'inicio',
   session: null,
@@ -28,5 +41,6 @@ export const state = {
     remaining_today: 8
   },
   loading: true,
-  authMode: 'login'
+  authMode: 'login',
+  authReturnTab: 'inicio'
 };
