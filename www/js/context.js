@@ -2,6 +2,7 @@ export let cfg;
 export const setCfg = value => { cfg = value; };
 
 const GUEST_ID_KEY='vidioup_guest_id';
+const PENDING_AUTH_ACTION_KEY='vidioup_pending_auth_action';
 
 export function getGuestId(){
   let id=localStorage.getItem(GUEST_ID_KEY);
@@ -12,6 +13,30 @@ export function getGuestId(){
 
   localStorage.setItem(GUEST_ID_KEY,id);
   return id;
+}
+
+export function setPendingAuthAction(value){
+  if(!value){
+    localStorage.removeItem(PENDING_AUTH_ACTION_KEY);
+    return;
+  }
+  localStorage.setItem(PENDING_AUTH_ACTION_KEY,JSON.stringify(value));
+}
+
+export function takePendingAuthAction(){
+  const raw=localStorage.getItem(PENDING_AUTH_ACTION_KEY);
+  localStorage.removeItem(PENDING_AUTH_ACTION_KEY);
+  if(!raw) return null;
+  try{
+    const value=JSON.parse(raw);
+    return value&&typeof value==='object'?value:null;
+  }catch{
+    return null;
+  }
+}
+
+export function clearPendingAuthAction(){
+  localStorage.removeItem(PENDING_AUTH_ACTION_KEY);
 }
 
 export const state = {

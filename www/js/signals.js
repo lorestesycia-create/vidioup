@@ -3,6 +3,7 @@ import { rpc } from './supabase.js';
 
 let observer=null;
 let shortAutoplayArmed=false;
+const mutedAutoplay=new WeakSet();
 const activeSessions=new Map();
 
 function youtubeCommand(iframe,func){
@@ -20,7 +21,8 @@ function pauseShortItem(el){
   if(!el) return;
   const iframe=el.querySelector('.player-shell iframe');
   youtubeCommand(iframe,'pauseVideo');
-  el.classList.remove('is-playing');
+  mutedAutoplay.delete(el);
+  el.classList.remove('is-playing','autoplay-muted');
 }
 
 function pauseOtherShorts(active){
@@ -33,8 +35,36 @@ function playShortItem(el){
   if(!el) return;
   pauseOtherShorts(el);
   const iframe=el.querySelector('.player-shell iframe');
+  if(shortAutoplayArmed) youtubeCommand(iframe,'unMute');
   youtubeCommand(iframe,'playVideo');
+  mutedAutoplay.delete(el);
+  el.classList.remove('autoplay-muted');
   el.classList.add('is-playing');
+}
+
+function playMutedShortItem(el){
+  if(!el||shortAutoplayArmed) return;
+  pauseOtherShorts(el);
+  const iframe=el.querySelector('.player-shell iframe');
+  if(!iframe) return;
+
+  const attempt=()=>{
+    if(shortAutoplayArmed||!activeSessions.has(el)||!el.isConnected) return;
+    youtubeCommand(iframe,'mute');
+    youtubeCommand(iframe,'playVideo');
+    mutedAutoplay.add(el);
+    el.classList.add('is-playing','autoplay-muted');
+  };
+
+  attempt();
+
+  if(!iframe.dataset.vidioupAutoplayHook){
+    iframe.dataset.vidioupAutoplayHook='1';
+    iframe.addEventListener('load',()=>setTimeout(attempt,120),{once:true});
+  }
+
+  setTimeout(attempt,450);
+  setTimeout(attempt,1000);
 }
 
 function stopAllShorts(){
@@ -117,6 +147,8 @@ export function initFeedTracking(){
           pauseOtherShorts(el);
           if(shortAutoplayArmed&&!el.classList.contains('is-playing')){
             playShortItem(el);
+          }else if(!shortAutoplayArmed&&!el.classList.contains('is-playing')){
+            playMutedShortItem(el);
           }
         }
       }else{
@@ -135,6 +167,18 @@ document.addEventListener('click',e=>{
 
   const item=target.closest('.short-item');
   if(!item) return;
+
+  if(mutedAutoplay.has(item)){
+    shortAutoplayArmed=true;
+    mutedAutoplay.delete(item);
+    item.classList.remove('autoplay-muted');
+    const iframe=item.querySelector('.player-shell iframe');
+    youtubeCommand(iframe,'unMute');
+    youtubeCommand(iframe,'playVideo');
+    item.classList.add('is-playing');
+    flashPlaybackState(item,true);
+    return;
+  }
 
   const wasPlaying=item.classList.contains('is-playing');
   if(wasPlaying){

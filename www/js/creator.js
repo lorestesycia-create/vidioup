@@ -1,6 +1,16 @@
 import { state } from './context.js';
 import { esc, money, card } from './utils.js';
 
+function creatorAvatar(url,name){
+  const initial=(name||'C')[0].toUpperCase();
+  return `
+    <div class="avatar large creator-avatar profile-avatar">
+      <span class="creator-avatar-fallback">${esc(initial)}</span>
+      ${url?`<img src="${esc(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`:''}
+    </div>
+  `;
+}
+
 export function creatorStudio(){
   return `
     <div class="section-title"><button class="back-btn" data-tab="perfil">‹</button><div><h2>Creator Studio</h2><p>Herramientas para tu canal y promociones.</p></div></div>
@@ -22,13 +32,12 @@ export function creatorProfile(){
     return `<section class="empty-state"><b>No se pudo cargar el creador.</b></section>`;
   }
 
-  const initial=(p.display_name||'C')[0].toUpperCase();
   const own=p.user_id===state.session?.user?.id;
   return `
     <div class="section-title"><button class="back-btn" data-tab="inicio">‹</button><div><h2>${esc(p.display_name||'Creador')}</h2><p>${Number(p.follower_count||0).toLocaleString('es-ES')} seguidores · ${Number(p.video_count||0).toLocaleString('es-ES')} vídeos</p></div></div>
     ${card(`
       <div class="public-profile">
-        <div class="avatar large">${esc(initial)}</div>
+        ${creatorAvatar(p.avatar_url,p.display_name)}
         <div class="public-profile-main">
           <h2>${esc(p.display_name||'Creador')}</h2>
           <p class="muted">${esc(p.bio||'')}</p>

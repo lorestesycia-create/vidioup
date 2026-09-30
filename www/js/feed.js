@@ -1,9 +1,20 @@
 import { state } from './context.js';
 import { esc } from './utils.js';
 
-function youtubeEmbed(videoId){
+function youtubeEmbed(videoId,{muted=false}={}){
   if(!videoId) return '';
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
+  const mute=muted?'&mute=1':'';
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1${mute}`;
+}
+
+function creatorAvatar(url,creator){
+  const initial=(creator?.[0]||'C').toUpperCase();
+  return `
+    <span class="mini-avatar creator-avatar">
+      <span class="creator-avatar-fallback">${esc(initial)}</span>
+      ${url?`<img src="${esc(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`:''}
+    </span>
+  `;
 }
 
 export function modeSwitch(){
@@ -18,7 +29,7 @@ export function modeSwitch(){
 function shortCard(v,{followingOnly=false}={}){
   const title=v.video_title||'Vídeo de VidioUp';
   const creator=v.creator_name||'Creador';
-  const embed=youtubeEmbed(v.youtube_video_id);
+  const embed=youtubeEmbed(v.youtube_video_id,{muted:true});
 
   return `
     <article class="feed-item short-item ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>
@@ -38,7 +49,7 @@ function shortCard(v,{followingOnly=false}={}){
           <div class="short-info-panel">
             <div class="short-creator-row">
               <button class="creator-link" data-action="open-creator" data-creator-id="${esc(v.creator_id)}">
-                <span class="mini-avatar">${esc((creator[0]||'C').toUpperCase())}</span>
+                ${creatorAvatar(v.creator_avatar_url,creator)}
                 <span>${esc(creator)}</span>
               </button>
 
@@ -91,7 +102,7 @@ function longCard(v,{followingOnly=false}={}){
 
       <div class="feed-meta">
         <button class="creator-link" data-action="open-creator" data-creator-id="${esc(v.creator_id)}">
-          <span class="mini-avatar">${esc((creator[0]||'C').toUpperCase())}</span>
+          ${creatorAvatar(v.creator_avatar_url,creator)}
           <span>${esc(creator)}</span>
         </button>
 

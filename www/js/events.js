@@ -1,4 +1,4 @@
-import { cfg, state, getGuestId } from './context.js';
+import { cfg, state, getGuestId, setPendingAuthAction, clearPendingAuthAction } from './context.js';
 import { $, esc, money } from './utils.js';
 import { saveSession } from './auth.js';
 import { rpc, edge } from './supabase.js';
@@ -88,6 +88,21 @@ document.addEventListener(
 
     if(!state.session&&AUTH_ONLY_ACTIONS.has(a)){
       stopFeedTracking({record:true});
+
+      if(a==='toggle-follow'||a==='toggle-favorite'){
+        const item=target.closest('.feed-item');
+        setPendingAuthAction({
+          action:a,
+          creatorId:target.dataset.creatorId||null,
+          following:target.dataset.following==='1',
+          campaignId:target.dataset.campaignId||null,
+          videoId:target.dataset.videoId||item?.dataset.videoId||null,
+          returnTab:state.tab
+        });
+      }else{
+        clearPendingAuthAction();
+      }
+
       showAuthGate(state.tab);
       return;
     }
@@ -105,6 +120,7 @@ document.addEventListener(
     }
 
     if(a==='guest-back'){
+      clearPendingAuthAction();
       state.tab='inicio';
       state.authReturnTab='inicio';
       render();
@@ -129,6 +145,7 @@ document.addEventListener(
     }
 
     if(a==='logout'){
+      clearPendingAuthAction();
       saveSession(null);
 
       state.authMode='login';
