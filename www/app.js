@@ -1,7 +1,8 @@
 import { state, setCfg } from './js/context.js';
 import { refreshSession, saveSession } from './js/auth.js';
 import { loadAppData, loadPublicData } from './js/data.js';
-import { render } from './js/ui.js';
+import { render, toast } from './js/ui.js';
+import { initPurchases } from './js/purchases.js';
 import './js/auth-events.js';
 import './js/events.js';
 
@@ -38,6 +39,10 @@ async function boot(){
   }finally{
     state.loading=false;
     render();
+
+    if(state.session){
+      initPurchases(render,toast).catch(()=>{});
+    }
   }
 }
 

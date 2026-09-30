@@ -4,6 +4,7 @@ import { saveSession, signIn, signUp } from './auth.js';
 import { rpc } from './supabase.js';
 import { loadAppData, loadCreator } from './data.js';
 import { render, toast } from './ui.js';
+import { initPurchases } from './purchases.js';
 
 async function completePendingAction(pending){
   if(!pending) return {completed:false};
@@ -65,6 +66,7 @@ async function finishAuthentication(session){
   state.authReturnTab='inicio';
   render();
   restorePendingVideo(pending);
+  initPurchases(render,toast).catch(()=>{});
 
   if(pending){
     if(result.completed){

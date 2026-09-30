@@ -6,6 +6,7 @@ import { loadAppData, loadPublicData, loadPromotedFeed, loadOrganicFeed, loadFol
 import { render, toast } from './ui.js';
 import { showRewarded } from './ads.js';
 import { stopFeedTracking } from './signals.js';
+import { buyPack } from './purchases.js';
 
 const AUTH_ONLY_TABS=new Set(['siguiendo','perfil']);
 const AUTH_ONLY_ACTIONS=new Set([
@@ -966,12 +967,31 @@ document.addEventListener(
       return;
     }
 
-    if(
-      e.target.closest('[data-sku]')
-    ){
-      toast(
-        'Las compras se activarán antes de publicar.'
-      );
+    const packTarget=e.target.closest('[data-sku]');
+
+    if(packTarget){
+      packTarget.disabled=true;
+
+      try{
+        const result=await buyPack(
+          packTarget.dataset.sku,
+          render,
+          toast
+        );
+
+        if(result?.cancelled){
+          return;
+        }
+      }catch(x){
+        toast(
+          x.message ||
+          'No se pudo iniciar la compra.'
+        );
+      }finally{
+        packTarget.disabled=false;
+      }
+
+      return;
     }
   }
 );
