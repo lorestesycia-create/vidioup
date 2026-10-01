@@ -4,7 +4,7 @@ import { saveSession } from './auth.js';
 import { rpc, edge } from './supabase.js';
 import { loadAppData, loadPublicData, loadPromotedFeed, loadOrganicFeed, loadFollowingFeed, loadFollowing, loadCreator, loadAccount, loadRewardStatus, loadInterests, loadSavedVideos, loadBlockedUsers, loadMyChannel } from './data.js';
 import { render, toast } from './ui.js';
-import { showRewarded } from './ads.js';
+import { showRewarded, showAdPrivacyOptions } from './ads.js';
 import { stopFeedTracking } from './signals.js';
 import { buyPack } from './purchases.js';
 
@@ -753,6 +753,23 @@ document.addEventListener(
         toast('Usuario desbloqueado.');
       }catch(x){
         toast(x.message||'No se pudo desbloquear al usuario.');
+      }finally{
+        target.disabled=false;
+      }
+      return;
+    }
+
+    if(a==='ad-privacy'){
+      target.disabled=true;
+      try{
+        const result=await showAdPrivacyOptions();
+        toast(
+          result?.shown
+            ? 'Opciones de privacidad actualizadas.'
+            : 'No se requieren opciones adicionales de privacidad de anuncios para tu región.'
+        );
+      }catch(x){
+        toast(x.message||'No se pudieron abrir las opciones de privacidad de anuncios.');
       }finally{
         target.disabled=false;
       }

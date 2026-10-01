@@ -32,6 +32,7 @@ export function settings(){
         <button data-action="blocked-users">⊘ Usuarios bloqueados</button>
         <button>Ayuda y soporte</button>
         <button>⚑ Denunciar contenido</button>
+        <button data-action="ad-privacy">Privacidad de anuncios</button>
         <button data-action="legal-privacy">§ Legal y privacidad</button>
         <button class="danger" data-action="logout">Cerrar sesión</button>
       </div>

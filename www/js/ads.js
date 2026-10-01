@@ -38,6 +38,32 @@ async function ensureAdMob(){
   return true;
 }
 
+
+export async function showAdPrivacyOptions(){
+  if(Capacitor.getPlatform()!=='android'){
+    throw new Error(
+      'Las opciones de privacidad de anuncios están disponibles en la app Android.'
+    );
+  }
+
+  await AdMob.initialize();
+
+  const consent=
+    await AdMob.requestConsentInfo();
+
+  if(
+    consent?.privacyOptionsRequirementStatus!=='REQUIRED'
+  ){
+    return {shown:false,required:false};
+  }
+
+  await AdMob.showPrivacyOptionsForm();
+
+  admobReady=false;
+
+  return {shown:true,required:true};
+}
+
 export async function showRewarded(render, toast){
   if(!state.session?.user?.id){
     throw new Error(
