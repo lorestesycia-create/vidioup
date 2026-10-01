@@ -33,10 +33,10 @@ export function modeSwitch(){
   `;
 }
 
-function shortCard(v,{followingOnly=false}={}){
+function shortCard(v,{followingOnly=false,muted=false}={}){
   const title=v.video_title||'Vídeo de VidioUp';
   const creator=v.creator_name||'Creador';
-  const embed=youtubeEmbed(v.youtube_video_id,{muted:true});
+  const embed=youtubeEmbed(v.youtube_video_id,{muted});
 
   return `
     <article class="feed-item short-item ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>
@@ -161,7 +161,7 @@ export function home(){
   const rows=mixedHomeRows();
   const short=state.contentMode==='short';
   const content=rows.length
-    ? rows.map(v=>videoCard(v)).join('')
+    ? rows.map((v,index)=>videoCard(v,{muted:short&&index===0})).join('')
     : `
       <section class="empty-state">
         <b>${short?'Todavía no hay Cortos':'Todavía no hay vídeos'}</b>
