@@ -3,8 +3,15 @@ import { esc } from './utils.js';
 
 function youtubeEmbed(videoId,{muted=false}={}){
   if(!videoId) return '';
-  const mute=muted?'&mute=1':'';
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1${mute}`;
+  const origin=globalThis.location?.origin||'https://localhost';
+  const params=new URLSearchParams({
+    playsinline:'1',
+    rel:'0',
+    enablejsapi:'1',
+    origin
+  });
+  if(muted) params.set('mute','1');
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
 }
 
 function creatorAvatar(url,creator){
@@ -35,43 +42,33 @@ function shortCard(v,{followingOnly=false}={}){
     <article class="feed-item short-item ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>
       <div class="player-shell vertical">
         ${embed
-          ? `<iframe src="${esc(embed)}" title="${esc(title)}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+          ? `<iframe src="${esc(embed)}" title="${esc(title)}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
           : v.thumbnail_url
             ? `<img src="${esc(v.thumbnail_url)}" alt="Miniatura del vídeo" loading="lazy">`
             : `<div class="video-placeholder">▶</div>`
         }
+      </div>
 
-        ${embed?`<button class="short-play-surface" data-action="short-toggle-play" aria-label="Reproducir o pausar corto"><span class="short-play-hint">▶</span></button>`:''}
-        <div class="short-shade" aria-hidden="true"></div>
-        ${v.is_promoted?`<span class="promoted-label short-promoted">Promocionado</span>`:''}
-
-        <div class="short-overlay">
-          <div class="short-info-panel">
-            <div class="short-creator-row">
-              <button class="creator-link" data-action="open-creator" data-creator-id="${esc(v.creator_id)}">
-                ${creatorAvatar(v.creator_avatar_url,creator)}
-                <span>${esc(creator)}</span>
-              </button>
-
-              ${followingOnly||v.is_following
-                ? `<button class="follow-btn following" data-action="toggle-follow" data-creator-id="${esc(v.creator_id)}" data-following="1" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Siguiendo</button>`
-                : `<button class="follow-btn" data-action="toggle-follow" data-creator-id="${esc(v.creator_id)}" data-following="0" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Seguir</button>`
-              }
-            </div>
-            <h2 class="feed-title short-title">${esc(title)}</h2>
+      <div class="short-meta-panel">
+        <div class="short-info-panel">
+          <div class="short-creator-row">
+            <button class="creator-link" data-action="open-creator" data-creator-id="${esc(v.creator_id)}">
+              ${creatorAvatar(v.creator_avatar_url,creator)}
+              <span>${esc(creator)}</span>
+            </button>
+            ${followingOnly||v.is_following
+              ? `<button class="follow-btn following" data-action="toggle-follow" data-creator-id="${esc(v.creator_id)}" data-following="1" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Siguiendo</button>`
+              : `<button class="follow-btn" data-action="toggle-follow" data-creator-id="${esc(v.creator_id)}" data-following="0" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>Seguir</button>`
+            }
           </div>
+          <h2 class="feed-title short-title">${esc(title)}</h2>
+          ${v.is_promoted?`<span class="promoted-label">Promocionado</span>`:''}
+        </div>
 
-          <div class="short-actions">
-            <button class="short-action" data-action="toggle-favorite" data-video-id="${esc(v.video_id)}" aria-label="${v.is_favorite?'Quitar de guardados':'Guardar'}">
-              <span>${v.is_favorite?'★':'☆'}</span><small>${v.is_favorite?'Guardado':'Guardar'}</small>
-            </button>
-            <button class="short-action" data-action="share-video" data-youtube-url="${esc(v.youtube_url)}" aria-label="Compartir">
-              <span>↗</span><small>Compartir</small>
-            </button>
-            <button class="short-action" data-action="feed-more" data-video-id="${esc(v.video_id)}" aria-expanded="false" aria-label="Más opciones">
-              <span>⋮</span><small>Más</small>
-            </button>
-          </div>
+        <div class="short-actions">
+          <button class="ghost compact" data-action="toggle-favorite" data-video-id="${esc(v.video_id)}">${v.is_favorite?'★ Guardado':'☆ Guardar'}</button>
+          <button class="ghost compact" data-action="share-video" data-youtube-url="${esc(v.youtube_url)}">Compartir</button>
+          <button class="ghost compact more" data-action="feed-more" data-video-id="${esc(v.video_id)}" aria-expanded="false">⋮</button>
         </div>
       </div>
 
@@ -93,7 +90,7 @@ function longCard(v,{followingOnly=false}={}){
       ${v.is_promoted?`<span class="promoted-label">Promocionado</span>`:''}
       <div class="player-shell horizontal">
         ${embed
-          ? `<iframe src="${esc(embed)}" title="${esc(title)}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+          ? `<iframe src="${esc(embed)}" title="${esc(title)}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
           : v.thumbnail_url
             ? `<img src="${esc(v.thumbnail_url)}" alt="Miniatura del vídeo" loading="lazy">`
             : `<div class="video-placeholder">▶</div>`

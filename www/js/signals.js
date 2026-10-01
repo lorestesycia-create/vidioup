@@ -2,8 +2,6 @@ import { state, getGuestId } from './context.js';
 import { rpc } from './supabase.js';
 
 let observer=null;
-let shortAutoplayArmed=false;
-const mutedAutoplay=new WeakSet();
 const activeSessions=new Map();
 
 function youtubeCommand(iframe,func){
@@ -21,8 +19,7 @@ function pauseShortItem(el){
   if(!el) return;
   const iframe=el.querySelector('.player-shell iframe');
   youtubeCommand(iframe,'pauseVideo');
-  mutedAutoplay.delete(el);
-  el.classList.remove('is-playing','autoplay-muted');
+  el.classList.remove('is-playing');
 }
 
 function pauseOtherShorts(active){
@@ -31,29 +28,17 @@ function pauseOtherShorts(active){
   });
 }
 
-function playShortItem(el){
-  if(!el) return;
-  pauseOtherShorts(el);
-  const iframe=el.querySelector('.player-shell iframe');
-  if(shortAutoplayArmed) youtubeCommand(iframe,'unMute');
-  youtubeCommand(iframe,'playVideo');
-  mutedAutoplay.delete(el);
-  el.classList.remove('autoplay-muted');
-  el.classList.add('is-playing');
-}
-
 function playMutedShortItem(el){
-  if(!el||shortAutoplayArmed) return;
+  if(!el) return;
   pauseOtherShorts(el);
   const iframe=el.querySelector('.player-shell iframe');
   if(!iframe) return;
 
   const attempt=()=>{
-    if(shortAutoplayArmed||!activeSessions.has(el)||!el.isConnected) return;
+    if(!activeSessions.has(el)||!el.isConnected) return;
     youtubeCommand(iframe,'mute');
     youtubeCommand(iframe,'playVideo');
-    mutedAutoplay.add(el);
-    el.classList.add('is-playing','autoplay-muted');
+    el.classList.add('is-playing');
   };
 
   attempt();
@@ -69,15 +54,6 @@ function playMutedShortItem(el){
 
 function stopAllShorts(){
   document.querySelectorAll('.short-item').forEach(pauseShortItem);
-}
-
-function flashPlaybackState(el,playing){
-  const hint=el?.querySelector('.short-play-hint');
-  if(!hint) return;
-  hint.textContent=playing?'❚❚':'▶';
-  hint.classList.add('visible');
-  clearTimeout(hint._vidioupTimer);
-  hint._vidioupTimer=setTimeout(()=>hint.classList.remove('visible'),650);
 }
 
 function stopSession(el){
@@ -143,13 +119,8 @@ export function initFeedTracking(){
         if(!activeSessions.has(el)){
           activeSessions.set(el,performance.now());
         }
-        if(el.classList.contains('short-item')&&entry.intersectionRatio>=0.75){
-          pauseOtherShorts(el);
-          if(shortAutoplayArmed&&!el.classList.contains('is-playing')){
-            playShortItem(el);
-          }else if(!shortAutoplayArmed&&!el.classList.contains('is-playing')){
-            playMutedShortItem(el);
-          }
+        if(el.classList.contains('short-item')&&entry.intersectionRatio>=0.75&&!el.classList.contains('is-playing')){
+          playMutedShortItem(el);
         }
       }else{
         if(activeSessions.has(el)) stopSession(el);
@@ -160,36 +131,6 @@ export function initFeedTracking(){
 
   items.forEach(el=>observer.observe(el));
 }
-
-document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-action="short-toggle-play"]');
-  if(!target) return;
-
-  const item=target.closest('.short-item');
-  if(!item) return;
-
-  if(mutedAutoplay.has(item)){
-    shortAutoplayArmed=true;
-    mutedAutoplay.delete(item);
-    item.classList.remove('autoplay-muted');
-    const iframe=item.querySelector('.player-shell iframe');
-    youtubeCommand(iframe,'unMute');
-    youtubeCommand(iframe,'playVideo');
-    item.classList.add('is-playing');
-    flashPlaybackState(item,true);
-    return;
-  }
-
-  const wasPlaying=item.classList.contains('is-playing');
-  if(wasPlaying){
-    pauseShortItem(item);
-    flashPlaybackState(item,false);
-  }else{
-    shortAutoplayArmed=true;
-    playShortItem(item);
-    flashPlaybackState(item,true);
-  }
-});
 
 window.addEventListener('pagehide',()=>stopFeedTracking({record:true}));
 document.addEventListener('visibilitychange',()=>{

@@ -12,10 +12,10 @@ const AUTH_ONLY_TABS=new Set(['siguiendo','perfil']);
 const AUTH_ONLY_ACTIONS=new Set([
   'wallet','go-promote','creator-studio','settings','go-campaigns',
   'studio-channel','view-my-public-profile','youtube-link-channel',
-  'youtube-sync-channel','youtube-import-video','youtube-toggle-hidden',
-  'youtube-change-kind','youtube-unlink','toggle-follow','block-creator',
+  'youtube-sync-channel','youtube-import-video','youtube-verify-channel','youtube-restart-verification','youtube-toggle-hidden',
+  'youtube-change-kind','youtube-unlink','toggle-follow','block-creator','report-creator',
   'not-interested','report-video','my-following','saved','interests',
-  'toggle-interest','save-interests','account-security','blocked-users',
+  'toggle-interest','save-interests','account-security','blocked-users','accept-creator-terms',
   'unblock-user','rewarded','toggle-favorite','campaign-preview','save-draft',
   'pause-campaign','resume-campaign','cancel-campaign'
 ]);
@@ -140,6 +140,11 @@ document.addEventListener(
     }
 
     if(a==='go-promote'){
+      try{
+        await loadMyChannel();
+      }catch(x){
+        toast(x.message||'No se pudo cargar tu canal.');
+      }
       state.tab='promocionar';
       render();
       return;
@@ -279,12 +284,63 @@ document.addEventListener(
       }
       target.disabled=true;
       try{
-        const result=await edge('youtube-sync',{
-          action:'link_channel',
+        await edge('youtube-ownership',{
+          action:'start_verification',
           channel_input:input,
-          category,
-          limit:20
+          category
         });
+        await loadMyChannel();
+        render();
+        toast('Código temporal generado. Ponlo en la descripción pública de tu canal.');
+      }catch(x){
+        toast(x.message||'No se pudo iniciar la verificación.');
+      }finally{
+        target.disabled=false;
+      }
+      return;
+    }
+
+    if(a==='youtube-restart-verification'){
+      const channelInput=state.myCreatorChannel?.youtube_channel_id||'';
+      const category=$('#ytLinkedCategory')?.value||state.myCreatorChannel?.youtube_default_category||'Entretenimiento';
+      if(!channelInput){
+        toast('No hay un canal enlazado.');
+        return;
+      }
+      target.disabled=true;
+      try{
+        await edge('youtube-ownership',{
+          action:'start_verification',
+          channel_input:channelInput,
+          category
+        });
+        await loadMyChannel();
+        render();
+        toast('Nuevo código temporal generado.');
+      }catch(x){
+        toast(x.message||'No se pudo generar otro código.');
+      }finally{
+        target.disabled=false;
+      }
+      return;
+    }
+
+    if(a==='youtube-verify-channel'){
+      const category=$('#ytLinkedCategory')?.value||state.myCreatorChannel?.youtube_default_category||'Entretenimiento';
+      target.disabled=true;
+      try{
+        const result=await edge('youtube-ownership',{
+          action:'verify_channel'
+        });
+
+        if(result?.verified){
+          await edge('youtube-ownership',{
+            action:'sync_verified_channel',
+            category,
+            limit:20
+          });
+        }
+
         await Promise.all([
           loadMyChannel(),
           loadOrganicFeed(),
@@ -292,9 +348,9 @@ document.addEventListener(
           loadFollowingFeed()
         ]);
         render();
-        toast(`Canal enlazado · ${Number(result?.imported||0)} nuevos y ${Number(result?.updated||0)} actualizados.`);
+        toast('Canal verificado correctamente.');
       }catch(x){
-        toast(x.message||'No se pudo enlazar el canal.');
+        toast(x.message||'El código aún no se ha podido comprobar.');
       }finally{
         target.disabled=false;
       }
@@ -305,8 +361,8 @@ document.addEventListener(
       const category=$('#ytLinkedCategory')?.value||state.myCreatorChannel?.youtube_default_category||'Entretenimiento';
       target.disabled=true;
       try{
-        const result=await edge('youtube-sync',{
-          action:'sync_channel',
+        const result=await edge('youtube-ownership',{
+          action:'sync_verified_channel',
           category,
           limit:20
         });
@@ -335,8 +391,8 @@ document.addEventListener(
       }
       target.disabled=true;
       try{
-        await edge('youtube-sync',{
-          action:'import_video',
+        await edge('youtube-ownership',{
+          action:'import_verified_video',
           video_url:url,
           category
         });
@@ -487,6 +543,29 @@ document.addEventListener(
         toast('Creador bloqueado.');
       }catch(x){
         toast(x.message||'No se pudo bloquear al creador.');
+      }finally{
+        target.disabled=false;
+      }
+      return;
+    }
+
+    if(a==='report-creator'){
+      const id=target.dataset.creatorId;
+      if(!id) return;
+
+      const ok=window.confirm('¿Quieres denunciar este creador para revisión?');
+      if(!ok) return;
+
+      target.disabled=true;
+      try{
+        await rpc('create_report',{
+          p_target_type:'creator',
+          p_target_id:id,
+          p_reason:'other'
+        });
+        toast('Denuncia enviada. Gracias.');
+      }catch(x){
+        toast(x.message||'No se pudo enviar la denuncia.');
       }finally{
         target.disabled=false;
       }
@@ -789,36 +868,39 @@ document.addEventListener(
       return;
     }
 
+    if(a==='accept-creator-terms'){
+      target.disabled=true;
+      try{
+        await rpc('accept_creator_terms',{
+          p_version:'2026-10-01'
+        });
+        await loadMyChannel();
+        render();
+        toast('Condiciones aceptadas.');
+      }catch(x){
+        toast(x.message||'No se pudieron aceptar las condiciones.');
+      }finally{
+        target.disabled=false;
+      }
+      return;
+    }
+
     if(a==='campaign-preview'){
-      const url=
-        $('#url').value.trim();
+      const videoId=$('#campaignVideo')?.value||'';
+      const budget=Number($('#budget')?.value);
+      const mode=$('#mode')?.value;
+      const video=(state.myVideos||[]).find(v=>v.id===videoId);
 
-      const budget=
-        Number($('#budget').value);
-
-      const mode=
-        $('#mode').value;
-
-      if(
-        !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(
-          url
-        )
-      ){
-        toast(
-          'Introduce un enlace válido de YouTube.'
-        );
+      if(!video){
+        toast('Selecciona un vídeo válido de tu canal.');
         return;
       }
 
       if(
-        budget<
-          cfg.economy.campaign_min_budget ||
-        budget>
-          cfg.economy.campaign_max_budget
+        budget<cfg.economy.campaign_min_budget ||
+        budget>cfg.economy.campaign_max_budget
       ){
-        toast(
-          'Presupuesto fuera de los límites.'
-               );
+        toast('Presupuesto fuera de los límites.');
         return;
       }
 
@@ -828,53 +910,22 @@ document.addEventListener(
         boost:4
       }[mode]||1;
 
-      const max=
-        Math.floor(budget/cost);
+      const max=Math.floor(budget/cost);
 
       $('#preview').innerHTML=`
         <div class="review">
-
           <b>Resumen</b>
-
-          <p>
-            ${esc(url)}
-          </p>
-
-          <p>
-            ${esc(cfg.campaign_modes[mode])}
-          </p>
-
-          <p>
-            Presupuesto:
-            ${money(budget)}
-            monedas
-          </p>
-
+          <p>${esc(video.title||'Vídeo')}</p>
+          <p class="muted">${esc(video.youtube_url||'')}</p>
+          <p>${esc(cfg.campaign_modes[mode])}</p>
+          <p>Presupuesto: ${money(budget)} monedas</p>
           <p class="muted">
-            Coste:
-            ${cost}
-            ${
-              cost===1
-                ? 'moneda'
-                : 'monedas'
-            }
-            por exposición válida.
+            Coste: ${cost} ${cost===1?'moneda':'monedas'} por exposición válida.
           </p>
-
           <p class="muted">
-            Hasta
-            ${money(max)}
-            exposiciones válidas dentro de VidioUp
-            con ese presupuesto.
+            Hasta ${money(max)} exposiciones válidas dentro de VidioUp con ese presupuesto.
           </p>
-
-          <button
-            class="btn"
-            data-action="save-draft"
-          >
-            Crear campaña
-          </button>
-
+          <button class="btn" data-action="save-draft">Crear campaña</button>
         </div>
       `;
 
@@ -886,36 +937,25 @@ document.addEventListener(
 
       try{
         await rpc(
-          'create_campaign',
+          'create_verified_campaign',
           {
-            p_youtube_url:
-              $('#url').value.trim(),
-
-            p_category:
-              $('#cat').value,
-
-            p_mode:
-              $('#mode').value,
-
-            p_budget:
-              Number($('#budget').value)
+            p_video_id:$('#campaignVideo').value,
+            p_mode:$('#mode').value,
+            p_budget:Number($('#budget').value)
           }
         );
 
         await loadAppData();
 
-        toast(
-          'Campaña creada correctamente.'
-        );
+        toast('Campaña creada correctamente.');
 
         state.tab='campanas';
         render();
 
       }catch(x){
-        toast(
-          x.message ||
-          'No se pudo crear la campaña.'
-        );
+        toast(x.message||'No se pudo crear la campaña.');
+      }finally{
+        target.disabled=false;
       }
 
       return;

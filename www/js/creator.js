@@ -47,6 +47,7 @@ export function creatorProfile(){
               : `<button class="btn" data-action="toggle-follow" data-creator-id="${esc(p.user_id)}" data-following="${p.is_following?'1':'0'}">${p.is_following?'Siguiendo':'Seguir'}</button>`
             }
             ${p.youtube_channel_url?`<button class="ghost" data-action="open-channel" data-url="${esc(p.youtube_channel_url)}">Ver canal en YouTube</button>`:''}
+            ${own?'':`<button class="ghost danger-outline" data-action="report-creator" data-creator-id="${esc(p.user_id)}">Denunciar creador</button>`}
             ${own?'':`<button class="ghost danger-outline" data-action="block-creator" data-creator-id="${esc(p.user_id)}">Bloquear creador</button>`}
           </div>
         </div>
