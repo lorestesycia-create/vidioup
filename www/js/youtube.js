@@ -35,6 +35,30 @@ export function youtubeChannel(){
   const title=p.youtube_channel_title||'Canal de YouTube';
   const channelThumb=p.youtube_channel_thumbnail_url||'';
   const selected=p.youtube_default_category||'Entretenimiento';
+  const termsAccepted=Boolean(
+    p.creator_terms_accepted_at &&
+    p.creator_terms_version==='2026-10-01'
+  );
+
+  if(!termsAccepted){
+    return `
+      <div class="section-title">
+        <button class="back-btn" data-tab="creator">‹</button>
+        <div><h2>Mi canal</h2><p>Contenido que aparecerá en VidioUp.</p></div>
+      </div>
+      ${card(`
+        <h2>Antes de usar YouTube</h2>
+        <p>Para enlazar, verificar, importar o promocionar contenido debes aceptar las condiciones para creadores y la Política de privacidad de VidioUp.</p>
+        <p class="muted">Solo podrás usar contenido propio de un canal que controles. VidioUp utiliza los Servicios de la API de YouTube para consultar los datos públicos necesarios del canal y sus vídeos.</p>
+        <p>
+          <a href="https://vidioup-privacy.floot.app/terminos" target="_blank" rel="noopener">Leer condiciones</a>
+          ·
+          <a href="https://vidioup-privacy.floot.app" target="_blank" rel="noopener">Política de privacidad</a>
+        </p>
+        <button class="btn wide" data-action="accept-creator-terms">Aceptar y continuar</button>
+      `)}
+    `;
+  }
 
   const linkedCard=linked?card(`
     <div class="yt-channel-head">
