@@ -159,7 +159,7 @@ workflows:
 
           g = re.sub(
               r"versionCode\s+\d+",
-              "versionCode 9",
+              "versionCode 10",
               g
           )
 
