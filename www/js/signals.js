@@ -6,6 +6,7 @@ const activeSessions=new Map();
 const shortPlayers=new Map();
 let activeShort=null;
 let shortsMuted=true;
+let shortsPlayed=0;
 let audioTimer=null;
 let youtubeApiReady=null;
 
@@ -108,6 +109,12 @@ function playShortItem(el){
   pauseOtherShorts(el);
   const iframe=el.querySelector('.player-shell iframe');
   if(!iframe) return;
+  if(shortsPlayed===0){
+    shortsMuted=true;
+  }else{
+    shortsMuted=false;
+  }
+  shortsPlayed++;
   activeShort=el;
   applyShortAudio(el);
 
@@ -194,7 +201,10 @@ export function initFeedTracking(){
   // Preserve the choice across feed re-renders and background/foreground,
   // but start muted again after leaving the Shorts feed.
   const shortsTabs=['inicio','siguiendo','saved'];
-  if(state.contentMode!=='short'||!shortsTabs.includes(state.tab)) shortsMuted=true;
+  if(state.contentMode!=='short'||!shortsTabs.includes(state.tab)){
+  shortsMuted=true;
+  shortsPlayed=0;
+}
 
   if(!('IntersectionObserver' in window)) return;
 
