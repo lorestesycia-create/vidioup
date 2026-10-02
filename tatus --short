@@ -1,0 +1,26 @@
+[1mdiff --git a/www/js/feed.js b/www/js/feed.js[m
+[1mindex c9f3ba2..c2101de 100644[m
+[1m--- a/www/js/feed.js[m
+[1m+++ b/www/js/feed.js[m
+[36m@@ -33,10 +33,10 @@[m [mexport function modeSwitch(){[m
+   `;[m
+ }[m
+ [m
+[31m-function shortCard(v,{followingOnly=false}={}){[m
+[32m+[m[32mfunction shortCard(v,{followingOnly=false,muted=false}={}){[m
+   const title=v.video_title||'Vídeo de VidioUp';[m
+   const creator=v.creator_name||'Creador';[m
+[31m-  const embed=youtubeEmbed(v.youtube_video_id,{muted:true});[m
+[32m+[m[32m  const embed=youtubeEmbed(v.youtube_video_id,{muted});[m
+ [m
+   return `[m
+     <article class="feed-item short-item ${v.is_promoted?'promoted-item':''}" data-video-id="${esc(v.video_id)}" ${v.campaign_id?`data-campaign-id="${esc(v.campaign_id)}"`:''}>[m
+[36m@@ -161,7 +161,7 @@[m [mexport function home(){[m
+   const rows=mixedHomeRows();[m
+   const short=state.contentMode==='short';[m
+   const content=rows.length[m
+[31m-    ? rows.map(v=>videoCard(v)).join('')[m
+[32m+[m[32m    ? rows.map((v,index)=>videoCard(v,{muted:short&&index===0})).join('')[m
+     : `[m
+       <section class="empty-state">[m
+         <b>${short?'Todavía no hay Cortos':'Todavía no hay vídeos'}</b>[m
