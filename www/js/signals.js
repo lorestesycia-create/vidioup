@@ -36,8 +36,11 @@ function rememberShortAudio(){
   // Commands reach the iframe asynchronously: wait for their acknowledgement
   // before treating a change as the user's choice in YouTube's speaker control.
   if(record.pendingMuted!==null){
-    if(muted===record.pendingMuted) record.pendingMuted=null;
-    return;
+    if(muted===record.pendingMuted){
+      record.pendingMuted=null;
+      return;
+    }
+    record.pendingMuted=null;
   }
   shortsMuted=muted;
 }

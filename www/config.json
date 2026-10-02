@@ -47,7 +47,7 @@
   "app": {
     "name": "VidioUp",
     "package": "com.vidioup.app",
-    "versionName": "1.0.9",
-    "versionCode": 10
+    "versionName": "1.0.10",
+    "versionCode": 11
   }
 }
