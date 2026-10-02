@@ -15,7 +15,7 @@
 body:has(.immersive-short-feed){padding-bottom:0;overflow:hidden;background:#000}
 body:has(.immersive-short-feed) .top{display:none}
 body:has(.immersive-short-feed) main{max-width:none!important;height:calc(100svh - 66px);overflow:hidden;margin:0}
-body:has(.immersive-short-feed) .feed-head{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;transform:translateX(-50%);z-index:30;width:max-content;padding:0;background:none}
+body:has(.immersive-short-feed) .feed-head{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:12px;right:auto;transform:none;z-index:30;width:max-content;max-width:calc(100vw - 24px);padding:0;background:none}
 body:has(.immersive-short-feed) .mode-switch{background:rgba(10,10,14,.48);border-color:rgba(255,255,255,.22);backdrop-filter:blur(10px);box-shadow:0 3px 14px rgba(0,0,0,.24)}
 body:has(.immersive-short-feed) .mode-switch button{color:rgba(255,255,255,.78)}
 body:has(.immersive-short-feed) .mode-switch button.active{background:rgba(255,255,255,.94);color:#11131a}

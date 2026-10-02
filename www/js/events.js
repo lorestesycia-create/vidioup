@@ -333,12 +333,17 @@ document.addEventListener(
           action:'verify_channel'
         });
 
+        let syncWarning=false;
         if(result?.verified){
-          await edge('youtube-ownership',{
-            action:'sync_verified_channel',
-            category,
-            limit:20
-          });
+          try{
+            await edge('youtube-ownership',{
+              action:'sync_verified_channel',
+              category,
+              limit:20
+            });
+          }catch{
+            syncWarning=true;
+          }
         }
 
         await Promise.all([
@@ -348,7 +353,7 @@ document.addEventListener(
           loadFollowingFeed()
         ]);
         render();
-        toast('Canal verificado correctamente.');
+        toast(syncWarning?'Canal verificado. La sincronización de vídeos queda pendiente.':'Canal verificado correctamente.');
       }catch(x){
         toast(x.message||'El código aún no se ha podido comprobar.');
       }finally{
