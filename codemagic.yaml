@@ -37,8 +37,8 @@ workflows:
 
           data = json.loads(source.read_text())
 
-          data["app"]["versionName"] = "1.0.12"
-          data["app"]["versionCode"] = 13
+          data["app"]["versionName"] = "1.0.13"
+          data["app"]["versionCode"] = 14
 
           target.write_text(
               json.dumps(
@@ -159,13 +159,13 @@ workflows:
 
           g = re.sub(
               r"versionCode\s+\d+",
-              "versionCode 13",
+              "versionCode 14",
               g
           )
 
           g = re.sub(
               r'versionName\s+"[^"]*"',
-              'versionName "1.0.12"',
+              'versionName "1.0.13"',
               g
           )
 
@@ -174,10 +174,10 @@ workflows:
 
       - name: Verify configuration
         script: |
-          grep -q 'versionCode 13' \
+          grep -q 'versionCode 14' \
             android/app/build.gradle
 
-          grep -q 'versionName "1.0.12"' \
+          grep -q 'versionName "1.0.13"' \
             android/app/build.gradle
 
           grep -q \
