@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { AdMob, AdmobConsentStatus } from '@capacitor-community/admob';
+import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition } from '@capacitor-community/admob';
 import { cfg, state } from './context.js';
 import { sleep } from './utils.js';
 import { rpc } from './supabase.js';
@@ -38,6 +38,29 @@ async function ensureAdMob(){
   return true;
 }
 
+
+export async function syncProfileBanner(tab){
+  if(Capacitor.getPlatform()!=='android') return;
+
+  const noBannerTabs=['inicio','explorar','siguiendo'];
+
+  if(noBannerTabs.includes(tab)){
+    try{ await AdMob.removeBanner(); }catch{}
+    return;
+  }
+
+  await ensureAdMob();
+
+  try{ await AdMob.removeBanner(); }catch{}
+
+  await AdMob.showBanner({
+    adId:'ca-app-pub-8854680295966508/5186967746',
+    adSize:BannerAdSize.ADAPTIVE_BANNER,
+    position:BannerAdPosition.BOTTOM_CENTER,
+    margin:66,
+    isTesting:false
+  });
+}
 
 export async function showAdPrivacyOptions(){
   if(Capacitor.getPlatform()!=='android'){
