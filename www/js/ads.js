@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition } from '@capacitor-community/admob';
+import { AdMob, AdmobConsentStatus } from '@capacitor-community/admob';
 import { cfg, state } from './context.js';
 import { sleep } from './utils.js';
 import { rpc } from './supabase.js';
@@ -39,22 +39,7 @@ async function ensureAdMob(){
 }
 
 
-
-
-export async function showMainBanner(){
-  if(Capacitor.getPlatform()!=='android') return;
-
-  await ensureAdMob();
-
-  await AdMob.showBanner({
-    adId:'ca-app-pub-8854680295966508/5186967746',
-    adSize:BannerAdSize.ADAPTIVE_BANNER,
-    position:BannerAdPosition.BOTTOM_CENTER,
-    margin:66,
-    isTesting:false
-  });
-}
-\nexport async function showAdPrivacyOptions(){
+export async function showAdPrivacyOptions(){
   if(Capacitor.getPlatform()!=='android'){
     throw new Error(
       'Las opciones de privacidad de anuncios están disponibles en la app Android.'

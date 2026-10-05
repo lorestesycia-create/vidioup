@@ -1,4 +1,3 @@
-import { showMainBanner } from './js/ads.js';
 import { state, setCfg } from './js/context.js';
 import { refreshSession, saveSession } from './js/auth.js';
 import { loadAppData, loadPublicData } from './js/data.js';
@@ -40,8 +39,6 @@ async function boot(){
   }finally{
     state.loading=false;
     render();
-
-    showMainBanner().catch(()=>{});
 
     if(state.session){
       initPurchases(render,toast).catch(()=>{});
