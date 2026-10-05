@@ -185,3 +185,24 @@ export async function showRewarded(render, toast){
     'Anuncio completado. Recompensa pendiente de verificación.'
   );
 }
+
+export async function syncProfileBanner(tab){
+  if(Capacitor.getPlatform()!=='android') return;
+
+  if(tab!=='perfil'){
+    try{ await AdMob.removeBanner(); }catch{}
+    return;
+  }
+
+  await ensureAdMob();
+
+  try{ await AdMob.removeBanner(); }catch{}
+
+  await AdMob.showBanner({
+    adId:'ca-app-pub-8854680295966508/5186967746',
+    adSize:'ADAPTIVE_BANNER',
+    position:'BOTTOM_CENTER',
+    margin:0,
+    isTesting:false
+  });
+}

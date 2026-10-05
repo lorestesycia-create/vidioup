@@ -4,7 +4,7 @@ import { saveSession } from './auth.js';
 import { rpc, edge } from './supabase.js';
 import { loadAppData, loadPublicData, loadPromotedFeed, loadOrganicFeed, loadFollowingFeed, loadFollowing, loadCreator, loadAccount, loadRewardStatus, loadInterests, loadSavedVideos, loadBlockedUsers, loadMyChannel } from './data.js';
 import { render, toast } from './ui.js';
-import { showRewarded, showAdPrivacyOptions } from './ads.js';
+import { showRewarded, showAdPrivacyOptions, syncProfileBanner } from './ads.js';
 import { stopFeedTracking } from './signals.js';
 import { buyPack } from './purchases.js';
 
@@ -78,6 +78,7 @@ document.addEventListener(
       }catch{}
 
       render();
+      syncProfileBanner(tab).catch(()=>{});
       return;
     }
 
