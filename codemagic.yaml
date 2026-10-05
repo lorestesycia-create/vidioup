@@ -23,7 +23,7 @@ workflows:
           npx esbuild www/app.js \
             --bundle \
             --platform=browser \
-            --format=iife \
+            --format=esm \
             --outfile=www-final/app.js
 
           cp www/index.html www/style.css www/shorts.css www/icon.png www-final/
